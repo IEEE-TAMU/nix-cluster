@@ -58,6 +58,7 @@
               (pkgs)
               nixos-anywhere
               sops
+              kubectl
               ;
           };
 
