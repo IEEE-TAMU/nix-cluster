@@ -6,3 +6,6 @@ creation_rules:
     key_groups:
       - pgp:
           - *caleb
+stores:
+  yaml:
+    indent: 2
