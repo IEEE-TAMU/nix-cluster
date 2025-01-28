@@ -1,6 +1,6 @@
 keys:
-  - &users:
-    - &caleb 483A112B3567C4F0DF8974E1D776F5702D7E83AB
+  - &users '':
+      - &caleb 483A112B3567C4F0DF8974E1D776F5702D7E83AB
 creation_rules:
   - path_regex: secrets.yaml$
     key_groups:
