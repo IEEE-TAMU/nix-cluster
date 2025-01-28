@@ -1,13 +1,14 @@
 {
   config,
   lib,
-  pkgs,
   ...
 }: let
-  cfg = config.ieee.cluster;
+  cfg = config.ieee-tamu.cluster;
 in {
   options = {
-    ieee.cluster = {};
+    ieee-tamu.cluster = {
+      enable = lib.mkEnableOption "ieee-tamu cluster";
+    };
   };
   config = lib.mkIf cfg.enable {
     assertions = [];

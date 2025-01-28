@@ -16,6 +16,7 @@
 
   outputs = inputs @ {
     nixpkgs,
+    systems,
     flake-parts,
     git-hooks,
     disko,
@@ -26,7 +27,26 @@
       imports = [
         git-hooks.flakeModule
       ];
-      systems = import inputs.systems;
+      systems = import systems;
+      flake = let
+        nixosModules = import ./modules;
+        commonModules =
+          builtins.attrValues nixosModules
+          ++ [
+            disko.nixosModules.disko
+            facter.nixosModules.facter
+          ];
+      in {
+        inherit nixosModules;
+
+        # configuration for getting nixos up and running on a new machine
+        # generates host ssh keys, checks hardware configuration, etc
+        # before commissioning into the cluster
+        nixosConfigurations.bootstrap = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = commonModules ++ [./hosts/bootstrap.nix];
+        };
+      };
       perSystem = {
         config,
         pkgs,
@@ -44,6 +64,8 @@
           typos.enable = true;
         };
 
+        # install the shellHook and packages from git-hooks
+        # as well as helpful tools for managing the cluster
         devShells.default = pkgs.mkShellNoCC {
           buildInputs = builtins.attrValues {
             inherit
@@ -56,26 +78,6 @@
 
           inputsFrom = [
             config.pre-commit.devShell
-          ];
-        };
-      };
-
-      flake = {
-        nixosModules = import ./modules;
-
-        # configuration for getting nixos up and running on a new machine
-        # generates host ssh keys, checks hardware configuration, etc
-        # before commissioning into the cluster
-        nixosConfigurations.bootstrap = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [
-            disko.nixosModules.disko
-            facter.nixosModules.facter
-            {
-              # generate by running nixos-anywhere with `--generate-hardware-config nixos-facter ./facter.json`
-              config.facter.reportPath = ./hardware/wyse-5070.json;
-            }
-            ./hosts/bootstrap.nix
           ];
         };
       };
