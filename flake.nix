@@ -10,7 +10,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     git-hooks-nix = {
-      url = "github:cachix/git-hooks.nix";
+      url = "github:gigamonster256/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     disko = {
@@ -46,9 +46,17 @@
           alejandra.enable = true;
           pretty-format-json = {
             enable = true;
-            args = ["--autofix"];
+            settings = {
+              autofix = true;
+            };
           };
           check-json.enable = true;
+          yamlfmt = {
+            enable = true;
+            settings = {
+              lint-only = false;
+            };
+          };
           typos.enable = true;
         };
 
