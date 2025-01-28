@@ -27,9 +27,7 @@
     disko,
     facter,
     ...
-  }: let
-    overlays = import ./overlays {inherit inputs;};
-  in
+  }:
     flake-parts.lib.mkFlake {inherit inputs;} {
       imports = [
         git-hooks-nix.flakeModule
