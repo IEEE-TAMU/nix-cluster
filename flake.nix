@@ -62,6 +62,7 @@
           yamlfmt.enable = true;
           yamlfmt.settings.lint-only = false;
           typos.enable = true;
+          typos.settings.exclude = "hardware";
         };
 
         # install the shellHook and packages from git-hooks
