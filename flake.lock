@@ -69,7 +69,7 @@
         "type": "github"
       }
     },
-    "git-hooks-nix": {
+    "git-hooks": {
       "inputs": {
         "flake-compat": "flake-compat",
         "gitignore": "gitignore",
@@ -94,7 +94,7 @@
     "gitignore": {
       "inputs": {
         "nixpkgs": [
-          "git-hooks-nix",
+          "git-hooks",
           "nixpkgs"
         ]
       },
@@ -145,7 +145,7 @@
         "disko": "disko",
         "facter": "facter",
         "flake-parts": "flake-parts",
-        "git-hooks-nix": "git-hooks-nix",
+        "git-hooks": "git-hooks",
         "nixpkgs": "nixpkgs",
         "sops-nix": "sops-nix",
         "systems": "systems"

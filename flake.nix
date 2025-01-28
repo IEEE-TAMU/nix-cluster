@@ -5,32 +5,26 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
     systems.url = "github:nix-systems/default";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    sops-nix = {
-      url = "github:Mic92/sops-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    git-hooks-nix = {
-      url = "github:gigamonster256/git-hooks.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    disko = {
-      url = "github:nix-community/disko";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    sops-nix.url = "github:Mic92/sops-nix";
+    sops-nix.inputs.nixpkgs.follows = "nixpkgs";
+    git-hooks.url = "github:gigamonster256/git-hooks.nix";
+    git-hooks.inputs.nixpkgs.follows = "nixpkgs";
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
     facter.url = "github:numtide/nixos-facter-modules";
   };
 
   outputs = inputs @ {
     nixpkgs,
     flake-parts,
-    git-hooks-nix,
+    git-hooks,
     disko,
     facter,
     ...
   }:
     flake-parts.lib.mkFlake {inherit inputs;} {
       imports = [
-        git-hooks-nix.flakeModule
+        git-hooks.flakeModule
       ];
       systems = import inputs.systems;
       perSystem = {
@@ -42,19 +36,11 @@
 
         pre-commit.settings.hooks = {
           alejandra.enable = true;
-          pretty-format-json = {
-            enable = true;
-            settings = {
-              autofix = true;
-            };
-          };
+          pretty-format-json.enable = true;
+          pretty-format-json.settings.autofix = true;
           check-json.enable = true;
-          yamlfmt = {
-            enable = true;
-            settings = {
-              lint-only = false;
-            };
-          };
+          yamlfmt.enable = true;
+          yamlfmt.settings.lint-only = false;
           typos.enable = true;
         };
 
