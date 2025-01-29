@@ -2,3 +2,4 @@
 /.pre-commit-config.yaml
 
 hardware/bootstrap.json
+k3s.yaml

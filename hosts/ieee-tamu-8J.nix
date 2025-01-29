@@ -40,6 +40,9 @@
     role = "server";
     tokenFile = config.sops.secrets.k3s_token.path;
     serverAddr = "https://192.168.1.10:6443";
+    extraFlags = [
+      "--tls-san 10.125.185.49"
+    ];
   };
 
   # remove once tested

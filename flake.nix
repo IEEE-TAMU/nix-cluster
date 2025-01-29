@@ -94,6 +94,8 @@
               ;
           };
 
+          env.KUBECONFIG = "./k3s.yaml";
+
           inputsFrom = [
             config.pre-commit.devShell
           ];
