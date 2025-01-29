@@ -6,6 +6,7 @@ creation_rules:
         age:
           - age16rm0cgvdc6e78yjrs5fur6mud0rdwvptzz0d5aw70r4dlfelkvaqeu63j2 # wyse-5B
           - age12cvkzte7t6ve35alv0d90ax6fyd2dwvjrep730zde53he4n3cqesqy5lje # wyse-8J
+          - age1sem5rzdt3xx07al39jw6ns3fj2297ryx5s4sepr47gfadrycep2qz4h4qd # wyse-6Q
 stores:
   yaml:
     indent: 2

@@ -59,6 +59,11 @@
             system = "x86_64-linux";
             modules = commonModules ++ [./hosts/ieee-tamu-8J.nix];
           };
+
+          ieee-tamu-6Q = nixpkgs.lib.nixosSystem {
+            system = "x86_64-linux";
+            modules = commonModules ++ [./hosts/ieee-tamu-6Q.nix];
+          };
         };
       };
       perSystem = {
