@@ -22,6 +22,14 @@
     interface = "enp1s0";
   };
   networking.nameservers = ["192.168.1.1"];
+  networking.firewall.allowedTCPPorts = [
+    6443 # k3s API server
+    2379 # etcd server client API
+    2380 # etcd server peer API
+  ];
+  networking.firewall.allowedUDPPorts = [
+    8472 # flannel VXLAN
+  ];
 
   sops.defaultSopsFile = ../secrets.yaml;
   sops.age.sshKeyPaths = ["/etc/ssh/ssh_host_ed25519_key"];
