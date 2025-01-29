@@ -42,6 +42,7 @@
     clusterInit = true;
     extraFlags = [
       "--tls-san 10.125.185.49"
+      "--node-name ieee-tamu-5B"
     ];
   };
 

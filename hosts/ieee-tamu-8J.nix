@@ -42,6 +42,7 @@
     serverAddr = "https://192.168.1.10:6443";
     extraFlags = [
       "--tls-san 10.125.185.49"
+      "--node-name ieee-tamu-8J"
     ];
   };
 
