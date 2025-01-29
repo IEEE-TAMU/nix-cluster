@@ -5,6 +5,7 @@ creation_rules:
           - 483A112B3567C4F0DF8974E1D776F5702D7E83AB # caleb
         age:
           - age16rm0cgvdc6e78yjrs5fur6mud0rdwvptzz0d5aw70r4dlfelkvaqeu63j2 # wyse-5B
+          - age12cvkzte7t6ve35alv0d90ax6fyd2dwvjrep730zde53he4n3cqesqy5lje # wyse-8J
 stores:
   yaml:
     indent: 2
