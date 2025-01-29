@@ -8,12 +8,12 @@
     ../hardware/wyse-disko.nix
   ];
 
-  facter.reportPath = ../hardware/wyse-5B.json;
+  facter.reportPath = ../hardware/wyse-8J.json;
 
-  networking.hostName = "ieee-tamu-5B";
+  networking.hostName = "ieee-tamu-8J";
   networking.interfaces.enp1s0.ipv4.addresses = [
     {
-      address = "192.168.1.10";
+      address = "192.168.1.11";
       prefixLength = 24;
     }
   ];
@@ -31,7 +31,7 @@
     enable = true;
     role = "server";
     tokenFile = config.sops.secrets.k3s_token.path;
-    clusterInit = true;
+    serverAddr = "https://192.168.1.10:6443";
   };
 
   # remove once tested
