@@ -62,7 +62,7 @@
           yamlfmt.enable = true;
           yamlfmt.settings.lint-only = false;
           typos.enable = true;
-          typos.settings.exclude = "hardware";
+          typos.settings.exclude = "'hardware|secrets*'";
         };
 
         # install the shellHook and packages from git-hooks
@@ -73,6 +73,8 @@
               (pkgs)
               nixos-anywhere
               sops
+              openssh
+              ssh-to-age
               kubectl
               ;
           };

@@ -1,11 +1,10 @@
-keys:
-  - &users '':
-      - &caleb 483A112B3567C4F0DF8974E1D776F5702D7E83AB
 creation_rules:
   - path_regex: secrets.yaml$
     key_groups:
       - pgp:
-          - *caleb
+          - 483A112B3567C4F0DF8974E1D776F5702D7E83AB # caleb
+        age:
+          - age16rm0cgvdc6e78yjrs5fur6mud0rdwvptzz0d5aw70r4dlfelkvaqeu63j2 # wyse-5B
 stores:
   yaml:
     indent: 2
