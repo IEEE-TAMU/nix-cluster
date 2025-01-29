@@ -21,6 +21,7 @@
     git-hooks,
     disko,
     facter,
+    sops-nix,
     ...
   }:
     flake-parts.lib.mkFlake {inherit inputs;} {
@@ -35,6 +36,7 @@
           ++ [
             disko.nixosModules.disko
             facter.nixosModules.facter
+            sops-nix.nixosModules.sops
           ];
       in {
         inherit nixosModules;
@@ -42,9 +44,16 @@
         # configuration for getting nixos up and running on a new machine
         # generates host ssh keys, checks hardware configuration, etc
         # before commissioning into the cluster
-        nixosConfigurations.bootstrap = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = commonModules ++ [./hosts/bootstrap.nix];
+        nixosConfigurations = {
+          bootstrap = nixpkgs.lib.nixosSystem {
+            system = "x86_64-linux";
+            modules = commonModules ++ [./hosts/bootstrap.nix];
+          };
+
+          ieee-tamu-5B = nixpkgs.lib.nixosSystem {
+            system = "x86_64-linux";
+            modules = commonModules ++ [./hosts/ieee-tamu-5B.nix];
+          };
         };
       };
       perSystem = {
@@ -62,7 +71,7 @@
           yamlfmt.enable = true;
           yamlfmt.settings.lint-only = false;
           typos.enable = true;
-          typos.settings.exclude = "'hardware|secrets*'";
+          typos.args = ["--force-exclude"];
         };
 
         # install the shellHook and packages from git-hooks
@@ -72,6 +81,7 @@
             inherit
               (pkgs)
               nixos-anywhere
+              nixos-rebuild
               sops
               openssh
               ssh-to-age

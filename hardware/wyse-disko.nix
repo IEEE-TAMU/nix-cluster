@@ -3,7 +3,7 @@
     disk = {
       main = {
         type = "disk";
-        device = "/dev/sda";
+        device = "/dev/sda"; # single sata 64GB disk
         content = {
           type = "gpt";
           partitions = {
@@ -34,6 +34,7 @@
       };
     };
   };
+  # enable grub with efi support
   boot.loader.grub.enable = true;
   boot.loader.grub.efiSupport = true;
   boot.loader.grub.efiInstallAsRemovable = true;
