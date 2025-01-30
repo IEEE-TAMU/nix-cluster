@@ -19,6 +19,8 @@ metadata:
   namespace: containerssh-guests
 spec:
   podSelector: {}
+  egress:
+    - {}
   policyTypes:
     - Ingress
     - Egress
@@ -31,12 +33,11 @@ metadata:
   namespace: containerssh
 data:
   config.yaml: |
-    # Let's log on the debug level so we can see what's going on.
     log:
       level: debug
     ssh:
+      banner: "Welcome to IEEE-TAMU's ContainerSSH\n"
       hostkeys:
-        # This points to the host key we will create in the next step.
         - /etc/containerssh/ssh_host_rsa_key
         - /etc/containerssh/ssh_host_ed25519_key
     auth:
@@ -57,15 +58,15 @@ data:
             - name: shell
               image: containerssh/containerssh-guest-image
               ## Further options to lock down the execution.
-              ## See https://containerssh.io/reference/kubernetes/ for mre options
+              ## See https://containerssh.io/reference/kubernetes/ for more options
               #
               # securityContext:
               #    runAsNonRoot: true
               #    runAsUser: 1000
-              # resources:
-              #   limits:
-              #     memory: "128Mi"
-              #     cpu: "500m"
+              resources:
+                limits:
+                  memory: "128Mi"
+                  cpu: "500m"
 ---
 # We are creating a new service account that can be used to launch new containers.
 apiVersion: v1
@@ -159,6 +160,7 @@ spec:
       securityContext:
         runAsNonRoot: true
       volumes:
+        # NOTE: ensure the secrets are loaded from the separate secrets yaml file
         - name: hostkey
           secret:
             secretName: containerssh-hostkey
@@ -166,7 +168,7 @@ spec:
           configMap:
             name: containerssh-config
 ---
-# Create a service that makes the SSH service public on port 22
+# Create a service that makes the SSH service public on port 2222
 apiVersion: v1
 kind: Service
 metadata:
