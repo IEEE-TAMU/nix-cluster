@@ -107,6 +107,12 @@
 
           env.KUBECONFIG = "./k3s.yaml";
 
+          shellHook = ''
+            if [ ! -f ./k3s.yaml ]; then
+              sops -d k3s.enc.yaml > k3s.yaml
+            fi
+          '';
+
           inputsFrom = [
             config.pre-commit.devShell
           ];

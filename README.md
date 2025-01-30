@@ -7,7 +7,7 @@ NixOS based k3s cluster deployed for IEEE-TAMU.
 ## Adding the bootstrapped host to the secrets file
 `ssh-keyscan <ip-address> | ssh-to-age`
 
-Add the scanned age key to the .sops.yaml file and reencrypt the secrets file with `sops updatekeys secrets.yaml`
+Add the scanned age key to the .sops.yaml file and reencrypt the secrets file with `sops updatekeys hosts/secrets.yaml`
 
 ## Deploying the cluster
 `nixos-rebuild switch -s --use-remote-sudo --fast --flake .#<server-name> --target-host root@<ip-address> --build-host root@<ip-address> --verbose`

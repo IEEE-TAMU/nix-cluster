@@ -1,5 +1,5 @@
 creation_rules:
-  - path_regex: secrets.yaml$
+  - path_regex: hosts/secrets.yaml$
     key_groups:
       - pgp:
           - 483A112B3567C4F0DF8974E1D776F5702D7E83AB # caleb
@@ -8,6 +8,10 @@ creation_rules:
           - age12cvkzte7t6ve35alv0d90ax6fyd2dwvjrep730zde53he4n3cqesqy5lje # wyse-8J
           - age1sem5rzdt3xx07al39jw6ns3fj2297ryx5s4sepr47gfadrycep2qz4h4qd # wyse-6Q
           - age1mjqm5esrzq2hu8rsa7vgx5cacnn39d7tlx5hyxa0t450je5cnf3qnan3u3 # wyse-7P
+  - path_regex: k3s.enc.yaml$
+    key_groups:
+      - pgp:
+          - 483A112B3567C4F0DF8974E1D776F5702D7E83AB # caleb
 stores:
   yaml:
     indent: 2
