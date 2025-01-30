@@ -45,10 +45,10 @@
         # generates host ssh keys, checks hardware configuration, etc
         # before commissioning into the cluster
         nixosConfigurations = {
-          # bootstrap = nixpkgs.lib.nixosSystem {
-          #   system = "x86_64-linux";
-          #   modules = commonModules ++ [./hosts/bootstrap.nix];
-          # };
+          bootstrap = nixpkgs.lib.nixosSystem {
+            system = "x86_64-linux";
+            modules = commonModules ++ [./hosts/bootstrap.nix];
+          };
 
           ieee-tamu-5B = nixpkgs.lib.nixosSystem {
             system = "x86_64-linux";
@@ -63,6 +63,11 @@
           ieee-tamu-6Q = nixpkgs.lib.nixosSystem {
             system = "x86_64-linux";
             modules = commonModules ++ [./hosts/ieee-tamu-6Q.nix];
+          };
+
+          ieee-tamu-7P = nixpkgs.lib.nixosSystem {
+            system = "x86_64-linux";
+            modules = commonModules ++ [./hosts/ieee-tamu-7P.nix];
           };
         };
       };
