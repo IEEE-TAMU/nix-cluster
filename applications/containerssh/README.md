@@ -1,6 +1,8 @@
 # ContainerSSH
 ContainerSSH allows users to log into an ephemeral container using SSH.
 
+Based on https://github.com/ContainerSSH/examples/blob/main/quick-start/kubernetes.yaml
+
 ## Usage
 
 Deploy the main configuration file:
