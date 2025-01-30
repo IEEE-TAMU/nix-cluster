@@ -64,11 +64,6 @@
             system = "x86_64-linux";
             modules = commonModules ++ [./hosts/ieee-tamu-6Q.nix];
           };
-
-          simple = nixpkgs.lib.nixosSystem {
-            system = "x86_64-linux";
-            modules = commonModules ++ [./hosts/simple.nix];
-          };
         };
       };
       perSystem = {
