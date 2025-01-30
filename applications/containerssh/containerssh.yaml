@@ -59,14 +59,25 @@ data:
               image: containerssh/containerssh-guest-image
               ## Further options to lock down the execution.
               ## See https://containerssh.io/reference/kubernetes/ for more options
-              #
-              # securityContext:
-              #    runAsNonRoot: true
-              #    runAsUser: 1000
+              securityContext:
+                 runAsNonRoot: true
+                 runAsUser: 1000
               resources:
                 limits:
                   memory: "128Mi"
                   cpu: "500m"
+              env:
+                - name: IEEE_SECRET
+                  value: Nice job finding me!
+              volumeMounts:
+                - name: secret
+                  mountPath: /etc/secret
+                  subPath: super_secret_value
+                  readOnly: true
+          volumes:
+            - name: secret
+              secret:
+                secretName: ieee-secret
 ---
 # We are creating a new service account that can be used to launch new containers.
 apiVersion: v1
