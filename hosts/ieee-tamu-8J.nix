@@ -4,7 +4,6 @@
   ...
 }: {
   imports = [
-    ./global.nix
     ../hardware/wyse-disko.nix
   ];
 
@@ -54,4 +53,6 @@
     git
     vim
   ];
+
+  system.stateVersion = "24.11";
 }

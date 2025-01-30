@@ -1,6 +1,5 @@
 {
   imports = [
-    ./global.nix
     ../hardware/wyse-disko.nix
   ];
 
@@ -11,4 +10,6 @@
   # generate ssh host keys for use with sops
   services.openssh.enable = true;
   services.openssh.settings.PermitRootLogin = "yes";
+
+  system.stateVersion = "24.11";
 }
