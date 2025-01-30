@@ -96,6 +96,7 @@
               openssh
               ssh-to-age
               kubectl
+              kubernetes-helm
               ;
           };
 

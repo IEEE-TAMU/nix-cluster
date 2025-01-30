@@ -16,6 +16,10 @@ in {
           disko-config = lib.mkOption {
             type = lib.types.path;
           };
+          initial = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+          };
           hostName = lib.mkOption {
             type = lib.types.str;
           };
@@ -91,7 +95,8 @@ in {
       enable = true;
       inherit (cfg) package tokenFile;
       inherit (cfg.node) role;
-      serverAddr = "https://${(builtins.elemAt cfg.init.ipv4.addresses 0).address}:6443";
+      clusterInit = cfg.node.initial;
+      serverAddr = lib.mkIf (!cfg.node.initial) "https://${(builtins.elemAt cfg.init.ipv4.addresses 0).address}:6443";
       extraFlags =
         cfg.node.extraFlags
         ++ [
