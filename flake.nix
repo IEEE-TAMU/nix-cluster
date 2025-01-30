@@ -110,6 +110,7 @@
           shellHook = ''
             if [ ! -f ./k3s.yaml ]; then
               sops -d k3s.enc.yaml > k3s.yaml
+              chmod 0600 k3s.yaml
             fi
           '';
 
