@@ -15,4 +15,4 @@ Cloudflared is a tunneling software that allows you to expose services running o
 ## Configuration
 The configuration for the tunnel is stored in the `applications/cloudflared/cloudflared.yaml` file. The config is currently just a hello world that is exposed at https://dev.ieeetamu.org (connected to Caleb's cloudflare account).
 
-In the future, this tunnel should point to the ingress controller which will route traffic to the correct service.
+Any other requests to *.ieeetamu.org will be sent to the traefik ingress controller and then to the appropriate service.
