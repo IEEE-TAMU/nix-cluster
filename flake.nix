@@ -102,6 +102,7 @@
               ssh-to-age
               kubectl
               kubernetes-helm
+              cloudflared
               ;
           };
 
