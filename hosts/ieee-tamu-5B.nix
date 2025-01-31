@@ -37,7 +37,7 @@
       ];
       role = "server";
       extraFlags = [
-        "--tls-san 10.125.185.49"
+        "--tls-san ieee-tamu.engr.tamu.edu"
       ];
     };
     init = {

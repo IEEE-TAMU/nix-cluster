@@ -1,7 +1,7 @@
 {
   name = "ieee-tamu";
   extraServerFlags = [
-    "--tls-san 10.125.185.49"
+    "--tls-san ieee-tamu.engr.tamu.edu"
   ];
   nodes = let
     networkingConfig = {
