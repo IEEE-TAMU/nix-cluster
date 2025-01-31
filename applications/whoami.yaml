@@ -46,6 +46,11 @@ metadata:
   annotations:
     ingerssClassName: traefik
     traefik.ingress.kubernetes.io/router.entrypoints: web
+    # use the cloudflared-cloudflare-realip middleware to ensure that the
+    # real IP address of the client is passed to the backend
+    # this should be applied globally to the web entrypoint
+    # but we're applying it here for now
+    traefik.ingress.kubernetes.io/router.middlewares: cloudflared-cloudflare-realip@kubernetescrd
 spec:
   rules:
     - host: whoami.ieeetamu.org
