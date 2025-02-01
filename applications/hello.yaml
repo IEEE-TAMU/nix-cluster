@@ -1,0 +1,65 @@
+# https://github.com/cloudflare/argo-tunnel-examples/blob/master/named-tunnel-k8s/cloudflared.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hello
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+  namespace: hello
+spec:
+  selector:
+    matchLabels:
+      app: hello
+  replicas: 2 # You could also consider elastic scaling for this deployment
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      containers:
+        - name: hello
+          image: crccheck/hello-world:latest
+          ports:
+            - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+  namespace: hello
+spec:
+  selector:
+    app: hello
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello
+  namespace: hello
+  annotations:
+    ingerssClassName: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    # use the cloudflared-cloudflare-realip middleware to ensure that the
+    # real IP address of the client is passed to the backend
+    # this should be applied globally to the web entrypoint
+    # but we're applying it here for now
+    traefik.ingress.kubernetes.io/router.middlewares: cloudflared-cloudflare-realip@kubernetescrd
+spec:
+  rules:
+    - host: hello.ieeetamu.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hello
+                port:
+                  number: 8000
