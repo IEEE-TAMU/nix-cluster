@@ -37,28 +37,17 @@ spec:
     - name: http
       port: 80
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
 metadata:
   name: whoami
   namespace: whoami
-  annotations:
-    ingerssClassName: traefik
-    traefik.ingress.kubernetes.io/router.entrypoints: web
-    # use the cloudflared-cloudflare-realip middleware to ensure that the
-    # real IP address of the client is passed to the backend
-    # this should be applied globally to the web entrypoint
-    # but we're applying it here for now
-    traefik.ingress.kubernetes.io/router.middlewares: cloudflared-cloudflare-realip@kubernetescrd
 spec:
-  rules:
-    - host: whoami.ieeetamu.org
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: whoami
-                port:
-                  number: 80
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`whoami.ieeetamu.org`)
+      kind: Rule
+      services:
+        - name: whoami
+          port: 80

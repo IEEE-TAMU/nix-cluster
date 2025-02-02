@@ -1,0 +1,52 @@
+# configure traefik to install the cloudflare warp plugin
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    experimental:
+      plugins:
+        cloudflarewarp:
+          moduleName: github.com/BetterCorp/cloudflarewarp
+          version: v1.3.3
+    logs:
+      general:
+        level: INFO
+    ingressRoute:
+      dashboard:
+        enabled: true
+        matchRule: Host(`traefik.ieeetamu.org`)
+        middlewares:
+          - name: traefik-auth
+        entryPoints:
+          - web
+    ports:
+      web:
+        # asDefault: true # needs v3
+        middlewares:
+          - kube-system-cloudflare-realip@kubernetescrd
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: cloudflare-realip
+  namespace: kube-system
+spec:
+  plugin:
+    cloudflarewarp:
+      # do not use built in ips since those only count traffic from cloudflare
+      disableDefault: true
+      # since the traffic comes from the tunnel (internal) we need to trust the tunnel's ip
+      trustip:
+        - "10.42.0.0/16"
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: traefik-auth
+  namespace: kube-system
+spec:
+  basicAuth:
+    secret: traefik-basic-auth
