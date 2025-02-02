@@ -4,6 +4,7 @@
   ...
 }: {
   imports = [
+    ./global.nix
     ../hardware/wyse-disko.nix
   ];
 
@@ -53,7 +54,6 @@
   environment.systemPackages = with pkgs; [
     git
     vim
-    cifs-utils # for mounting backup smb share
   ];
 
   system.stateVersion = "24.11";
