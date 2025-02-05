@@ -60,6 +60,9 @@ metadata:
 spec:
   mariaDbRef:
     name: mariadb
+  schedule:
+    cron: "9,39 * * * *"
+    suspend: false
   # davfs2 user
   securityContext:
     runAsUser: 101
