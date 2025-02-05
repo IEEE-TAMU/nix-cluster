@@ -9,21 +9,22 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: containerssh-guests
----
-# Let's apply a network policy for the containerssh-guests namespace so guests can't connect any network resources.
-# This might not work if your CNI doesn't support network policies (e.g. Docker Desktop)
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: containerssh-guest-policy
-  namespace: containerssh-guests
-spec:
-  podSelector: {}
-  egress:
-    - {}
-  policyTypes:
-    - Ingress
-    - Egress
+
+# ---
+# # Let's apply a network policy for the containerssh-guests namespace so guests can't connect any network resources.
+# # This might not work if your CNI doesn't support network policies (e.g. Docker Desktop)
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: containerssh-guest-policy
+#   namespace: containerssh-guests
+# spec:
+#   podSelector: {}
+#   egress:
+#     - {}
+#   policyTypes:
+#     - Ingress
+#     - Egress
 ---
 # Let's create a ConfigMap that contains the ContainerSSH configuration
 apiVersion: v1
@@ -53,15 +54,18 @@ data:
       pod:
         metadata:
           namespace: containerssh-guests
+          labels:
+            app: containerssh-guests
         spec:
+          subdomain: containerssh-guests
           containers:
             - name: shell
               image: containerssh/containerssh-guest-image
               ## Further options to lock down the execution.
               ## See https://containerssh.io/reference/kubernetes/ for more options
-              securityContext:
-                 runAsNonRoot: true
-                 runAsUser: 1000
+              # securityContext:
+              #    runAsNonRoot: true
+              #    runAsUser: 1000
               resources:
                 limits:
                   memory: "128Mi"
@@ -74,6 +78,14 @@ data:
                   mountPath: /etc/secret
                   subPath: super_secret_value
                   readOnly: true
+            - name: webserver
+              image: traefik/whoami:latest
+              resources:
+                limits:
+                  memory: "128Mi"
+                  cpu: "500m"
+              ports:
+                - containerPort: 80
           volumes:
             - name: secret
               secret:
@@ -193,3 +205,111 @@ spec:
       port: 2222
       targetPort: 2222
   type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: containerssh-guests
+  namespace: containerssh-guests
+spec:
+  type: ClusterIP
+  selector:
+    app: containerssh-guests
+  ports:
+    - name: http
+      port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: containerssh-guests-headless
+  namespace: containerssh-guests
+spec:
+  clusterIP: None
+  selector:
+    app: containerssh-guests
+  ports:
+    - name: http
+      port: 80
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: containerssh-guests
+  namespace: containerssh-guests
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`containerssh.ieeetamu.org`)
+      kind: Rule
+      services:
+        - name: containerssh-guests
+          port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webserver-proxy
+  namespace: containerssh-guests
+spec:
+  selector:
+    matchLabels:
+      app: webserver-proxy
+  replicas: 2 # You could also consider elastic scaling for this deployment
+  template:
+    metadata:
+      labels:
+        app: webserver-proxy
+    spec:
+      containers:
+        - name: proxy
+          image: nginx
+          ports:
+            - containerPort: 80
+          # set up nginx.conf from the configmap
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+      volumes:
+        - name: config-volume
+          configMap:
+            name: proxy-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webserver-proxy
+  namespace: containerssh-guests
+spec:
+  selector:
+    app: webserver-proxy
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: webserver-proxy
+  namespace: containerssh-guests
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: HostRegexp(`containerssh-{uuid:[a-z0-9]+}.ieeetamu.org`)
+      kind: Rule
+      services:
+        - name: webserver-proxy
+          port: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: proxy-config
+  namespace: containerssh-guests
+data:
+  nginx.conf: "worker_processes auto;\nevents {\n    worker_connections 1024;\n}\n\nhttp {\n    include       mime.types;\n    default_type  application/octet-stream;\n\n    log_format  main  '$remote_addr - $remote_user [$time_local] \"$request\" '\n                      '$status $body_bytes_sent \"$http_referer\" '\n                      '\"$http_user_agent\" \"$http_x_forwarded_for\"';\n\n    access_log  /var/log/nginx/access.log  main;\n    error_log   /var/log/nginx/error.log warn;\n\n    sendfile        on;\n    tcp_nopush      on;\n    tcp_nodelay     on;\n    keepalive_timeout 65;\n    types_hash_max_size 2048;\n\n    map $host $containerssh_node {\n        default $host;\n        \"~^(.*)\\.ieeetamu\\.org$\" $1;\n    }\n\n    # Main server block to handle wildcard subdomains\n    server {\n        listen 80;\n        server_name *.ieeetamu.org;\n\n        # Set the subdomain from the Host header\n        location / {\n            # Proxy the request to the backend service corresponding to the subdomain\n            proxy_pass http://$containerssh_node.containerssh-guests-headless.containerssh-guests.svc.cluster.local;\n            # proxy_pass http://containerssh-guests.containerssh-guests.svc.cluster.local;\n            \n            # Pass headers along to the backend\n            proxy_set_header Host $host;\n            proxy_set_header X-Real-IP $remote_addr;\n            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n            proxy_set_header X-Forwarded-Proto $scheme;\n\n            resolver kube-dns.kube-system.svc.cluster.local valid=10s;\n        }\n    }\n    \n    # Additional error handling and custom configurations can be added here.\n}\n"
