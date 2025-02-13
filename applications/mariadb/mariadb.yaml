@@ -60,6 +60,7 @@ metadata:
 spec:
   mariaDbRef:
     name: mariadb
+  maxRetention: 720h # 30 days
   schedule:
     cron: "9,39 * * * *"
     suspend: false
