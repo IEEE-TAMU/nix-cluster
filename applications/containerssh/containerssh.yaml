@@ -75,21 +75,30 @@ data:
                   value: Nice job finding me!
               volumeMounts:
                 - name: secret
-                  mountPath: /etc/secret
+                  mountPath: /secret
                   subPath: super_secret_value
                   readOnly: true
+                - name: html
+                  mountPath: /html
             - name: webserver
-              image: traefik/whoami:latest
+              image: nginx
               resources:
                 limits:
                   memory: "128Mi"
                   cpu: "500m"
               ports:
                 - containerPort: 80
+              volumeMounts:
+                - name: html
+                  mountPath: /usr/share/nginx/html
           volumes:
             - name: secret
               secret:
                 secretName: ieee-secret
+            - name: html
+              emptyDir:
+                sizeLimit: 1Mi
+                medium: Memory
 ---
 # We are creating a new service account that can be used to launch new containers.
 apiVersion: v1
@@ -312,4 +321,53 @@ metadata:
   name: proxy-config
   namespace: containerssh-guests
 data:
-  nginx.conf: "worker_processes auto;\nevents {\n    worker_connections 1024;\n}\n\nhttp {\n    include       mime.types;\n    default_type  application/octet-stream;\n\n    log_format  main  '$remote_addr - $remote_user [$time_local] \"$request\" '\n                      '$status $body_bytes_sent \"$http_referer\" '\n                      '\"$http_user_agent\" \"$http_x_forwarded_for\"';\n\n    access_log  /var/log/nginx/access.log  main;\n    error_log   /var/log/nginx/error.log warn;\n\n    sendfile        on;\n    tcp_nopush      on;\n    tcp_nodelay     on;\n    keepalive_timeout 65;\n    types_hash_max_size 2048;\n\n    map $host $containerssh_node {\n        default $host;\n        \"~^(.*)\\.ieeetamu\\.org$\" $1;\n    }\n\n    # Main server block to handle wildcard subdomains\n    server {\n        listen 80;\n        server_name *.ieeetamu.org;\n\n        # Set the subdomain from the Host header\n        location / {\n            # Proxy the request to the backend service corresponding to the subdomain\n            proxy_pass http://$containerssh_node.containerssh-guests-headless.containerssh-guests.svc.cluster.local;\n            # proxy_pass http://containerssh-guests.containerssh-guests.svc.cluster.local;\n            \n            # Pass headers along to the backend\n            proxy_set_header Host $host;\n            proxy_set_header X-Real-IP $remote_addr;\n            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n            proxy_set_header X-Forwarded-Proto $scheme;\n\n            resolver kube-dns.kube-system.svc.cluster.local valid=10s;\n        }\n    }\n    \n    # Additional error handling and custom configurations can be added here.\n}\n"
+  nginx.conf: |
+    worker_processes auto;
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        include       mime.types;
+        default_type  application/octet-stream;
+
+        log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                          '$status $body_bytes_sent "$http_referer" '
+                          '"$http_user_agent" "$http_x_forwarded_for"';
+
+        access_log  /var/log/nginx/access.log main;
+        error_log   /var/log/nginx/error.log warn;
+
+        sendfile        on;
+        tcp_nopush      on;
+        tcp_nodelay     on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+
+        map $host $containerssh_node {
+            default $host;
+            "~^(.*)\.ieeetamu\.org$" $1;
+        }
+
+        # Main server block to handle wildcard subdomains
+        server {
+            listen 80;
+            server_name *.ieeetamu.org;
+
+            # Set the subdomain from the Host header
+            location / {
+                # Proxy the request to the backend service corresponding to the subdomain
+                proxy_pass http://$containerssh_node.containerssh-guests-headless.containerssh-guests.svc.cluster.local;
+
+                # Pass headers along to the backend
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+
+                resolver kube-dns.kube-system.svc.cluster.local valid=10s;
+            }
+        }
+
+        # Additional error handling and custom configurations can be added here.
+    }
