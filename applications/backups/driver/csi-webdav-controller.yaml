@@ -73,7 +73,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: webdav
-          image: ghcr.io/gigamonster256/webdavplugin:latest
+          image: ghcr.io/ieee-tamu/webdavplugin:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
