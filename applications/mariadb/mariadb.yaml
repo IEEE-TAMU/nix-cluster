@@ -91,3 +91,44 @@ spec:
       memory: 512Mi
   affinity:
     antiAffinityEnabled: true
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Backup
+metadata:
+  name: cf-s3-backup
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  maxRetention: 720h # 30 days
+  schedule:
+    cron: "9 */6 * * *"
+    suspend: false
+  serviceAccountName: backup
+  compression: gzip
+  storage:
+    s3:
+      bucket: ieee-tamu-mariadb-backups
+      # Caleb's cf account
+      endpoint: 7fb33e1cd9a82644ca4c6e019b8ad6af.r2.cloudflarestorage.com
+      accessKeyIdSecretKeyRef:
+        name: s3-secrets
+        key: access-key-id
+      secretAccessKeySecretKeyRef:
+        name: s3-secrets
+        key: secret-access-key
+      tls:
+        enabled: true
+  args:
+    - --single-transaction
+    - --all-databases
+    - --verbose
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+  affinity:
+    antiAffinityEnabled: true
