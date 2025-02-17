@@ -1,2 +1,0 @@
-cluster._domainkey.example.com. 86400 IN TXT
-"v=DKIM1; k=rsa; h=sha256; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDfMF5gP5oq9VjwwGozdsBqCL1nrPqhqoMlINIlRgvU7O70mQSs6EiNeV2M3PHDFaTbvGCpEk/tngm/i82u54y3AsGfPjgezlwcynOYbdrLoYrPViFUzm3+hdLyAh1c9d2EZu6lHBi1wt+bdmYvd/uhEmsjTZ5CGfDxCA0bQbBRxwIDAQAB"
