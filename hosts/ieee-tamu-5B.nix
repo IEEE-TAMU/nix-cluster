@@ -32,6 +32,7 @@
         6443 # k3s API server
         2379 # etcd server client API
         2380 # etcd server peer API
+        10250 # kubelet metrics
       ];
       allowedUDPPorts = [
         8472 # flannel VXLAN
