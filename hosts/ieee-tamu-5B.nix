@@ -1,16 +1,8 @@
-{
-  config,
-  pkgs,
-  ...
-}: {
+{config, ...}: {
   imports = [
     ./global.nix
     ../hardware/wyse-disko.nix
   ];
-
-  sops.defaultSopsFile = ./secrets.yaml;
-  sops.age.sshKeyPaths = ["/etc/ssh/ssh_host_ed25519_key"];
-  sops.secrets.k3s_token = {};
 
   ieee-tamu.cluster = {
     enable = true;
@@ -51,15 +43,6 @@
       ];
     };
   };
-
-  # remove once tested
-  users.users.root.initialPassword = "bootstrap";
-  services.openssh.enable = true;
-  services.openssh.settings.PermitRootLogin = "yes";
-  environment.systemPackages = with pkgs; [
-    git
-    vim
-  ];
 
   system.stateVersion = "24.11";
 }
