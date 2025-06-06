@@ -1,4 +1,5 @@
-{config, ...}: {
+{ config, ... }:
+{
   imports = [
     ./global.nix
     ../hardware/wyse-disko.nix
@@ -11,7 +12,7 @@
       facter-config = ../hardware/wyse-5B.json;
       hostName = "ieee-tamu-5B";
       initial = true;
-      nameservers = ["192.168.1.1"];
+      nameservers = [ "192.168.1.1" ];
       interface = "enp1s0";
       ipv4.addresses = [
         {
