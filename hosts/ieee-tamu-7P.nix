@@ -41,5 +41,11 @@
     };
   };
 
+  services.minecraft-server = {
+    enable = true;
+    eula = true;
+    openFirewall = true;
+  };
+
   system.stateVersion = "24.11";
 }

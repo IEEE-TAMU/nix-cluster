@@ -27,4 +27,6 @@
     git
     vim
   ];
+
+  nixpkgs.config.allowUnfree = true;
 }
