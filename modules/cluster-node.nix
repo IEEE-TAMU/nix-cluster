@@ -91,6 +91,7 @@ in
       inherit (cfg.node) hostName nameservers;
       interfaces.${cfg.node.interface} = {
         inherit (cfg.node) ipv4;
+        useDHCP = false;
       };
       defaultGateway = {
         inherit (cfg.node) interface;

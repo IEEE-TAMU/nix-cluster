@@ -7,11 +7,11 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     sops-nix.url = "github:Mic92/sops-nix";
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
-    git-hooks.url = "github:gigamonster256/git-hooks.nix";
+    git-hooks.url = "github:cachix/git-hooks.nix";
     git-hooks.inputs.nixpkgs.follows = "nixpkgs";
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
-    facter.url = "github:numtide/nixos-facter-modules";
+    facter.url = "github:nix-community/nixos-facter-modules";
   };
 
   outputs =
@@ -82,14 +82,12 @@
           formatter = pkgs.nixfmt-tree;
 
           pre-commit.settings.hooks = {
-            # alejandra.enable = true;
             pretty-format-json.enable = true;
             pretty-format-json.settings.autofix = true;
             check-json.enable = true;
             yamlfmt.enable = true;
             yamlfmt.settings.lint-only = false;
             typos.enable = true;
-            typos.args = [ "--force-exclude" ];
           };
 
           # install the shellHook and packages from git-hooks
