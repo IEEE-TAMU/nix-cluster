@@ -45,6 +45,7 @@
     enable = true;
     eula = true;
     openFirewall = true;
+    jvmOpts = "-Xms4092M -Xmx4092M";
   };
 
   system.stateVersion = "24.11";
