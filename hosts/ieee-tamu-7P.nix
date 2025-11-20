@@ -1,4 +1,4 @@
-{ config, ... }:
+{ pkgs, config, ... }:
 {
   imports = [
     ./global.nix
@@ -43,6 +43,7 @@
 
   services.minecraft-server = {
     enable = true;
+    package = pkgs.minecraftServers.vanilla-1-21;
     eula = true;
     openFirewall = true;
     jvmOpts = "-Xms4092M -Xmx4092M";
