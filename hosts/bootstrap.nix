@@ -1,15 +1,24 @@
+{ inputs, ... }:
 {
-  imports = [
-    ../hardware/wyse-disko.nix
-  ];
+  flake.nixosConfigurations.bootstrap = inputs.nixpkgs.lib.nixosSystem {
+    modules = [
+      inputs.disko.nixosModules.disko
+      inputs.facter.nixosModules.facter
+      {
+        imports = [
+          ../hardware/wyse-disko.nix
+        ];
 
-  # generate by running nixos-anywhere with `--generate-hardware-config nixos-facter ./hardware/bootstrap.json`
-  facter.reportPath = ../hardware/bootstrap.json;
-  users.users.root.initialPassword = "bootstrap";
+        # generate by running nixos-anywhere with `--generate-hardware-config nixos-facter ./hardware/bootstrap.json`
+        facter.reportPath = ../hardware/bootstrap.json;
+        users.users.root.initialPassword = "bootstrap";
 
-  # generate ssh host keys for use with sops
-  services.openssh.enable = true;
-  services.openssh.settings.PermitRootLogin = "yes";
+        # generate ssh host keys for use with sops
+        services.openssh.enable = true;
+        services.openssh.settings.PermitRootLogin = "yes";
 
-  system.stateVersion = "24.11";
+        system.stateVersion = "24.11";
+      }
+    ];
+  };
 }
