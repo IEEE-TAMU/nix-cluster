@@ -2,3 +2,6 @@
 /.pre-commit-config.yaml
 
 /hardware/bootstrap.json
+
+result
+result-*
