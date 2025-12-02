@@ -13,6 +13,7 @@
         inputs.facter.nixosModules.facter
         inputs.disko.nixosModules.disko
         inputs.self.modules.nixos.cluster-node
+        inputs.self.modules.nixos.ha-vip
       ];
 
       nix.settings.experimental-features = [
@@ -51,11 +52,15 @@
         tokenFile = config.sops.secrets.k3s_token.path;
         node = {
           # FIXME: only read role if enabled?
-          extraFlags = lib.optionals (config.ieee-tamu.cluster.node.role == "server") [
-            "--tls-san ieee-tamu.engr.tamu.edu"
-          ];
+           extraFlags =
+             lib.optionals (config.ieee-tamu.cluster.node.role == "server") [
+               "--tls-san ieee-tamu.engr.tamu.edu"
+              "--tls-san ${config.ieee-tamu.ha-vip.vip}"
+             ];
         };
         init.ipv4.address = "192.168.1.10";
       };
+      # FIXME: only check role if cluster is enabled
+      ieee-tamu.ha-vip.enable = config.ieee-tamu.cluster.node.role == "server";
     };
 }
