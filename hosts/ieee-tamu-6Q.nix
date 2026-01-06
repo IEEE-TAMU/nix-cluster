@@ -7,17 +7,10 @@
       {
         facter.reportPath = ../hardware/wyse-6Q.json;
 
+        ieee-tamu.network-map.enable = true;
+
         networking = {
           hostName = "ieee-tamu-6Q";
-          interfaces.enp1s0 = {
-            useDHCP = false;
-            ipv4.addresses = [
-              {
-                address = "192.168.1.12";
-                prefixLength = 24;
-              }
-            ];
-          };
           firewall = {
             allowedTCPPorts = [
               6443 # k3s API server

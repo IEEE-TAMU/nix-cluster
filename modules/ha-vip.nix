@@ -1,4 +1,6 @@
 {
+  # TODO: if a device comes online with higher priority, ssh sessions drop
+  # fix this by configuring keepalived to not preempt?
   flake.modules.nixos.ha-vip =
     {
       config,
