@@ -36,6 +36,7 @@
       };
 
       services.openssh.enable = true;
+      hardware.bluetooth.enable = false;
 
       environment.systemPackages = with pkgs; [
         git
