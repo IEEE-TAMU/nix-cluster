@@ -19,6 +19,7 @@
                 2379 # etcd server client API
                 2380 # etcd server peer API
                 10250 # kubelet metrics
+                9100 # node-exporter metrics
               ];
               allowedUDPPorts = [
                 8472 # flannel VXLAN
