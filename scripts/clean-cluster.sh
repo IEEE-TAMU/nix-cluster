@@ -16,7 +16,7 @@ for host in "${HOSTS[@]}"; do
     echo "Cleaning $host via $JUMP_HOST..."
     echo "========================================"
 
-    ssh -J "$JUMP_HOST" "root@$host" "nix-collect-garbage && k3s crictl rmi --prune"
+    ssh -J "$JUMP_HOST" "root@$host" "nix-collect-garbage -d && /run/current-system/bin/switch-to-configuration boot && k3s crictl rmi --prune"
 
     echo "Command sent to $host."
 done
