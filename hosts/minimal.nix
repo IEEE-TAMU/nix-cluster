@@ -14,12 +14,5 @@
       "${inputs.nixpkgs}/nixos/modules/profiles/all-hardware.nix"
       "${inputs.nixpkgs}/nixos/modules/profiles/base.nix"
     ];
-
-    # disable useless software
-    environment.defaultPackages = [ ];
-    documentation.enable = false;
-    xdg.icons.enable = false;
-    xdg.mime.enable = false;
-    xdg.sounds.enable = false;
   };
 }
