@@ -25,6 +25,8 @@
 
       sops.defaultSopsFile = ./secrets.yaml;
       sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+      # do not try to use ssh host rsa keys
+      sops.gnupg.sshKeyPaths = [ ];
       sops.secrets.k3s_token = { };
       sops.secrets.root_password.neededForUsers = true;
 
