@@ -1,6 +1,6 @@
-{ inputs, ... }:
+{ inputs, config, ... }@flake:
 {
-  flake.modules.nixos.default =
+  flake.modules.nixos.wyse =
     {
       lib,
       pkgs,
@@ -16,18 +16,28 @@
         inputs.self.modules.nixos.ha-vip
         inputs.self.modules.nixos.network-map
         inputs.self.modules.nixos.minimal
+        ../hardware/wyse-disko.nix
       ];
+
+      ieee-tamu.network-map.enable = true;
+      ieee-tamu.network-map.interface = lib.mkDefault "enp1s0";
+
+      facter.reportPath =
+        let
+          inherit (config.networking) hostName;
+          hostNamePostfix = lib.removePrefix "ieee-tamu-" hostName;
+        in
+        lib.mkDefault ../hardware/wyse-${hostNamePostfix}.json;
 
       nix.settings.experimental-features = [
         "nix-command"
         "flakes"
       ];
 
-      sops.defaultSopsFile = ./secrets.yaml;
+      sops.defaultSopsFile = ../hosts/secrets.yaml;
       sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
       # do not try to use ssh host rsa keys
       sops.gnupg.sshKeyPaths = [ ];
-      sops.secrets.k3s_token = { };
       sops.secrets.root_password.neededForUsers = true;
 
       users.mutableUsers = false;
@@ -54,6 +64,7 @@
         defaultGateway = "192.168.1.1";
       };
 
+      sops.secrets.k3s_token = { };
       ieee-tamu.cluster = {
         tokenFile = config.sops.secrets.k3s_token.path;
         node = {
@@ -63,9 +74,13 @@
             "--tls-san ${config.ieee-tamu.ha-vip.vip}"
           ];
         };
-        init.ipv4.address = "192.168.1.10";
       };
       # FIXME: only check role if cluster is enabled
       ieee-tamu.ha-vip.enable = config.ieee-tamu.cluster.node.role == "server";
+
+      # configure the leader ip
+      ieee-tamu.cluster.init.ipv4.address = flake.config.ieee-tamu.network-map.hosts.ieee-tamu-5B;
+
+      system.stateVersion = lib.mkDefault "24.11";
     };
 }

@@ -1,14 +1,11 @@
 { self, inputs, ... }:
 {
+  ieee-tamu.network-map.hosts.ieee-tamu-8J = "192.168.1.11";
+
   flake.nixosConfigurations.ieee-tamu-8J = inputs.nixpkgs.lib.nixosSystem {
     modules = [
-      self.modules.nixos.default
-      ../hardware/wyse-disko.nix
+      self.modules.nixos.wyse
       {
-        facter.reportPath = ../hardware/wyse-8J.json;
-
-        ieee-tamu.network-map.enable = true;
-
         networking = {
           hostName = "ieee-tamu-8J";
           firewall = {
@@ -29,10 +26,7 @@
           enable = true;
           node.role = "server";
         };
-
-        system.stateVersion = "24.11";
       }
-
     ];
   };
 }

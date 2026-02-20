@@ -1,14 +1,11 @@
 { self, inputs, ... }:
 {
+  ieee-tamu.network-map.hosts.ieee-tamu-5B = "192.168.1.10";
+
   flake.nixosConfigurations.ieee-tamu-5B = inputs.nixpkgs.lib.nixosSystem {
     modules = [
-      self.modules.nixos.default
-      ../hardware/wyse-disko.nix
+      self.modules.nixos.wyse
       {
-        facter.reportPath = ../hardware/wyse-5B.json;
-
-        ieee-tamu.network-map.enable = true;
-
         networking = {
           hostName = "ieee-tamu-5B";
           firewall = {
@@ -32,8 +29,6 @@
             initial = true;
           };
         };
-
-        system.stateVersion = "24.11";
       }
     ];
   };

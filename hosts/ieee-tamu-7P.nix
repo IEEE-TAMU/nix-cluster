@@ -1,16 +1,13 @@
 { self, inputs, ... }:
 {
+  ieee-tamu.network-map.hosts.ieee-tamu-7P = "192.168.1.13";
+
   flake.nixosConfigurations.ieee-tamu-7P = inputs.nixpkgs.lib.nixosSystem {
     modules = [
-      self.modules.nixos.default
-      ../hardware/wyse-disko.nix
+      self.modules.nixos.wyse
       (
         { pkgs, ... }:
         {
-          facter.reportPath = ../hardware/wyse-7P.json;
-
-          ieee-tamu.network-map.enable = true;
-
           networking = {
             hostName = "ieee-tamu-7P";
             firewall = {
@@ -39,8 +36,6 @@
             openFirewall = true;
             jvmOpts = "-Xms4092M -Xmx4092M";
           };
-
-          system.stateVersion = "24.11";
         }
       )
     ];
