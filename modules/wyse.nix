@@ -45,7 +45,7 @@
         hashedPasswordFile = config.sops.secrets.root_password.path;
         openssh.authorizedKeys.keys = [
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO2FLDIautZl87H9xJKsPJsO0gO/8t4jOS3Szz4j2qY4 IEEE@IEEEPC"
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB3tGxUsgEJN/dwJ+QovVJd0yNg+YkJercIjGVJD+rvt caleb@chnorton-fw"
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOevicH4lyiFYuIcUPKSvu3+zjY67wzLkkCCN3Er7Hff caleb@chnorton-fw"
         ];
       };
 
