@@ -43,10 +43,7 @@
       users.mutableUsers = false;
       users.users.root = {
         hashedPasswordFile = config.sops.secrets.root_password.path;
-        openssh.authorizedKeys.keys = [
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO2FLDIautZl87H9xJKsPJsO0gO/8t4jOS3Szz4j2qY4 IEEE@IEEEPC"
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOevicH4lyiFYuIcUPKSvu3+zjY67wzLkkCCN3Er7Hff caleb@chnorton-fw"
-        ];
+        openssh.authorizedKeys.keys = flake.config.meta.owner.sshKeys;
       };
 
       services.openssh.enable = true;
@@ -82,5 +79,10 @@
       ieee-tamu.cluster.init.ipv4.address = flake.config.ieee-tamu.network-map.hosts.ieee-tamu-5B;
 
       system.stateVersion = lib.mkDefault "24.11";
+
+      system.autoUpgrade = {
+        enable = true;
+        inherit (flake.config.meta) flake;
+      };
     };
 }
