@@ -29,10 +29,16 @@
         in
         lib.mkDefault ../hardware/wyse-${hostNamePostfix}.json;
 
-      nix.settings.experimental-features = [
-        "nix-command"
-        "flakes"
-      ];
+      nix.settings = {
+        experimental-features = [
+          "nix-command"
+          "flakes"
+        ];
+        extra-substituters = [ "https://ieeetamu.cachix.org" ];
+        extra-trusted-public-keys = [
+          "ieeetamu.cachix.org-1:2GZnWNg5DRoPlUGP8V2EB3YpkTtfw2wCHf4VJye4ZhI="
+        ];
+      };
 
       sops.defaultSopsFile = ../hosts/secrets.yaml;
       sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];

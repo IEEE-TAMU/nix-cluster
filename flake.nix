@@ -47,4 +47,13 @@
           devShells.default = import ./shell.nix { inherit pkgs; };
         };
     };
+
+  nixConfig = {
+    extra-substituters = [
+      "https://ieeetamu.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "ieeetamu.cachix.org-1:2GZnWNg5DRoPlUGP8V2EB3YpkTtfw2wCHf4VJye4ZhI="
+    ];
+  };
 }
