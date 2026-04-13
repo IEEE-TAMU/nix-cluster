@@ -2,6 +2,8 @@
 {
   ieee-tamu.network-map.hosts.ieee-tamu-7P = "192.168.1.13";
 
+  flake.ci.x86_64-linux.nixos = [ "ieee-tamu-7P" ];
+
   flake.nixosConfigurations.ieee-tamu-7P = inputs.nixpkgs.lib.nixosSystem {
     modules = [
       self.modules.nixos.wyse

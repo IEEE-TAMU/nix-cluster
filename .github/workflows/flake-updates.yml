@@ -1,0 +1,30 @@
+name: "Update flakes"
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * SUN"
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v20
+      - name: Update flake.lock
+        id: update
+        uses: DeterminateSystems/update-flake-lock@v28
+        with:
+          pr-title: "chore: update flake.lock"
+          commit-msg: "chore: update flake.lock"
+          pr-labels: |
+            dependencies
+            automated
+          pr-body: |
+            ```
+            {{ env.GIT_COMMIT_MESSAGE }}
+            ```
+          branch: flake-update
+          token: "${{ secrets.RUN_WORKFLOW_PAT }}"
