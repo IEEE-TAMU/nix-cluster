@@ -47,6 +47,23 @@
           };
       };
       config = lib.mkIf cfg.enable {
+        networking.firewall =
+          let
+            serverPorts = [
+              6443 # k3s API server
+              2379 # etcd server client API (HA)
+              2380 # etcd server peer API (HA)
+            ];
+          in
+          {
+            allowedTCPPorts = lib.mkIf (cfg.node.role == "server") serverPorts ++ [
+              10250 # kubelet metrics
+              9100 # node-exporter metrics
+            ];
+            allowedUDPPorts = [
+              8472 # flannel VXLAN
+            ];
+          };
         services.k3s = {
           enable = true;
           inherit (cfg) package tokenFile;
