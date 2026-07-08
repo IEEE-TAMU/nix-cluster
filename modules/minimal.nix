@@ -9,7 +9,6 @@
 
     # only add strictly necessary modules
     boot.initrd.includeDefaultModules = false;
-    #   boot.initrd.kernelModules = [ "ext4" ... ];
     disabledModules = [
       "${inputs.nixpkgs}/nixos/modules/profiles/all-hardware.nix"
       "${inputs.nixpkgs}/nixos/modules/profiles/base.nix"

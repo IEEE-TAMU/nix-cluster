@@ -1,6 +1,4 @@
 {
-  # TODO: if a device comes online with higher priority, ssh sessions drop
-  # fix this by configuring keepalived to not preempt?
   flake.modules.nixos.ha-vip =
     {
       config,
@@ -42,26 +40,19 @@
             interface = cfg.interface;
             state = "BACKUP";
             virtualRouterId = 51;
+            noPreempt = true;
             virtualIps = [
               {
                 addr = "${cfg.vip}/24";
               }
             ];
             trackScripts = [ "check_k3s" ];
-            # auth not needed for local network
 
-            # extraConfig = ''
-            #   authentication {
-            #     auth_type PASS
-            #     auth_pass ieee-tamu-cluster
-            #   }
-            # '';
-            # Set priority based on IP address (last octet) to ensure unique priorities
             priority =
               let
-                # Get the first IPv4 address from the configured interface
-                addr = builtins.head config.networking.interfaces.${cfg.interface}.ipv4.addresses;
-                lastOctet = lib.last (lib.splitString "." addr.address);
+                addrs = config.networking.interfaces.${cfg.interface}.ipv4.addresses;
+                lastOctet =
+                  if addrs != [ ] then lib.last (lib.splitString "." (builtins.head addrs).address) else "10";
               in
               lib.toInt lastOctet;
           };

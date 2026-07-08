@@ -24,24 +24,25 @@ let
             nixosCfg = config.ieee-tamu.network-map;
           in
           {
-            options = {
-              ieee-tamu.network-map = {
-                enable = lib.mkEnableOption "network map for ieee-tamu cluster";
-                interface = lib.mkOption {
-                  type = lib.types.str;
-                  default = "enp1s0";
-                  description = "The interface to configure with the cluster IP address.";
-                };
+            options.ieee-tamu.network-map = {
+              enable = lib.mkEnableOption "network map for ieee-tamu cluster";
+              interface = lib.mkOption {
+                type = lib.types.str;
+                default = "enp1s0";
+                description = "The interface to configure with the cluster IP address.";
+              };
+              prefixLength = lib.mkOption {
+                type = lib.types.int;
+                default = 24;
+                description = "CIDR prefix length for interface addresses.";
               };
             };
 
             config = lib.mkIf nixosCfg.enable {
-              # populate /etc/hosts so nodes can talk to each other by name (swap name and value)
               networking.hosts = lib.mapAttrs' (
                 name: ip: lib.nameValuePair ip (lib.singleton name)
               ) flakeCfg.hosts;
 
-              # automatically configure the interface IP if this host is in the map
               networking.interfaces.${nixosCfg.interface} =
                 lib.mkIf (builtins.hasAttr config.networking.hostName flakeCfg.hosts)
                   {
@@ -49,7 +50,7 @@ let
                     ipv4.addresses = [
                       {
                         address = flakeCfg.hosts.${config.networking.hostName};
-                        prefixLength = 24;
+                        prefixLength = nixosCfg.prefixLength;
                       }
                     ];
                   };

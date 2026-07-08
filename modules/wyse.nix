@@ -1,4 +1,4 @@
-{ inputs, config, ... }@flake:
+{ inputs, ... }@flake:
 {
   flake.modules.nixos.wyse =
     {
@@ -70,16 +70,13 @@
       sops.secrets.k3s_token = { };
       ieee-tamu.cluster = {
         tokenFile = config.sops.secrets.k3s_token.path;
-        node = {
-          # FIXME: only read role if enabled?
-          extraFlags = lib.optionals (config.ieee-tamu.cluster.node.role == "server") [
-            "--tls-san ieee-tamu.engr.tamu.edu"
-            "--tls-san ${config.ieee-tamu.ha-vip.vip}"
-          ];
-        };
+        node.extraFlags = lib.optionals (config.ieee-tamu.cluster.node.role == "server") [
+          "--tls-san ieee-tamu.engr.tamu.edu"
+          "--tls-san ${config.ieee-tamu.ha-vip.vip}"
+        ];
       };
-      # FIXME: only check role if cluster is enabled
-      ieee-tamu.ha-vip.enable = config.ieee-tamu.cluster.node.role == "server";
+      ieee-tamu.ha-vip.enable =
+        config.ieee-tamu.cluster.enable && config.ieee-tamu.cluster.node.role == "server";
 
       # configure the leader ip
       ieee-tamu.cluster.init.ipv4.address = flake.config.ieee-tamu.network-map.hosts.ieee-tamu-5B;

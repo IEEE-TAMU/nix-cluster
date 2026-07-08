@@ -22,7 +22,7 @@
             package = pkgs.minecraftServers.vanilla-1-21;
             eula = true;
             openFirewall = true;
-            jvmOpts = "-Xms4092M -Xmx4092M";
+            jvmOpts = "-Xms4096M -Xmx4096M";
           };
         }
       )

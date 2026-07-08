@@ -56,7 +56,7 @@
             ];
           in
           {
-            allowedTCPPorts = lib.mkIf (cfg.node.role == "server") serverPorts ++ [
+            allowedTCPPorts = lib.optionals (cfg.node.role == "server") serverPorts ++ [
               10250 # kubelet metrics
               9100 # node-exporter metrics
             ];

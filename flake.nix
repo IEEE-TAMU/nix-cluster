@@ -1,5 +1,5 @@
 {
-  description = "";
+  description = "IEEE TAMU k3s cluster configuration";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";

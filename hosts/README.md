@@ -1,8 +1,11 @@
 # Hosts
 
-This directory contains host specific configurations for cluster machines.
+This directory contains host-specific configurations for cluster machines.
 
 ## Available Hosts
 
-- [global](./global.nix): Not an actual host, but contains any global configuration that is applied to all hosts.
-- [bootstrap](./bootstrap.nix): Minimal configuration necessary to make sure disko and initial filesystem setup is complete (things like generating the disk partitions, setting up ssh host keys, etc).
+- [bootstrap](./bootstrap.nix) — Minimal bootstrap configuration for initial provisioning with disko.
+- [ieee-tamu-5B](./ieee-tamu-5B.nix) — k3s server (initial), `192.168.1.10`
+- [ieee-tamu-8J](./ieee-tamu-8J.nix) — k3s server, `192.168.1.11`
+- [ieee-tamu-6Q](./ieee-tamu-6Q.nix) — k3s server, `192.168.1.12`
+- [ieee-tamu-7P](./ieee-tamu-7P.nix) — k3s agent, `192.168.1.13` (Minecraft server)
