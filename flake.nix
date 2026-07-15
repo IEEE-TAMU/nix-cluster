@@ -37,7 +37,7 @@
         owner.sshKeys = [
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO2FLDIautZl87H9xJKsPJsO0gO/8t4jOS3Szz4j2qY4 IEEE@IEEEPC"
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOevicH4lyiFYuIcUPKSvu3+zjY67wzLkkCCN3Er7Hff caleb@chnorton-fw"
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBXDkn8r5j8vBJGhJJ9Nzsft2t7qEU6uippoTcdF+ptN jadonLee8"
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFfa8fdKcXjHmq25KiVeogHtzgQc/cG2srkOuyukV067 jadonLee8"
         ];
       };
 
