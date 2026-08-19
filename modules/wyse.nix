@@ -15,6 +15,7 @@
         inputs.self.modules.nixos.cluster-node
         inputs.self.modules.nixos.ha-vip
         inputs.self.modules.nixos.network-map
+        inputs.self.modules.nixos.binary-cache
         inputs.self.modules.nixos.minimal
         ../hardware/wyse-disko.nix
       ];
@@ -77,6 +78,7 @@
       };
       ieee-tamu.ha-vip.enable =
         config.ieee-tamu.cluster.enable && config.ieee-tamu.cluster.node.role == "server";
+      ieee-tamu.binary-cache.enable = config.ieee-tamu.cluster.enable;
 
       # configure the leader ip
       ieee-tamu.cluster.init.ipv4.address = flake.config.ieee-tamu.network-map.hosts.ieee-tamu-5B;
