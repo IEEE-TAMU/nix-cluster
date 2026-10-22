@@ -10,7 +10,6 @@
     {
       imports = [
         inputs.sops-nix.nixosModules.sops
-        inputs.facter.nixosModules.facter
         inputs.disko.nixosModules.disko
         inputs.self.modules.nixos.cluster-node
         inputs.self.modules.nixos.ha-vip
@@ -23,7 +22,7 @@
       ieee-tamu.network-map.enable = true;
       ieee-tamu.network-map.interface = lib.mkDefault "enp1s0";
 
-      facter.reportPath =
+      hardware.facter.reportPath =
         let
           inherit (config.networking) hostName;
           hostNamePostfix = lib.removePrefix "ieee-tamu-" hostName;
