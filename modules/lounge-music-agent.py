@@ -14,6 +14,7 @@ BIND_ADDRESS = os.environ.get("BIND_ADDRESS", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8787"))
 TOKEN_FILE = os.environ.get("TOKEN_FILE", "")
 MAX_QUEUE_LENGTH = int(os.environ.get("MAX_QUEUE_LENGTH", "25"))
+MAX_VOLUME = int(os.environ.get("MAX_VOLUME", "100"))
 DEFAULT_ALLOWED_HOSTS = ",".join(
     [
         "youtube.com",
@@ -125,7 +126,7 @@ def status():
         if isinstance(entry, dict):
             entries.append(
                 {
-                    "title": entry.get("filename") or entry.get("title"),
+                    "title": entry.get("title") or entry.get("filename"),
                     "current": bool(entry.get("current")),
                 }
             )
@@ -137,6 +138,7 @@ def status():
         "playing": not idle and not paused,
         "title": get_property("media-title"),
         "volume": int(round(volume)) if isinstance(volume, (int, float)) else None,
+        "mute": bool(get_property("mute", False)),
         "position": get_property("time-pos"),
         "duration": get_property("duration"),
         "queuePosition": get_property("playlist-pos"),
@@ -242,6 +244,11 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/resume":
                 mpv_command("set_property", "pause", False)
                 self.send_json(200, status())
+            elif path == "/volume":
+                self.handle_volume(body)
+            elif path == "/mute":
+                mpv_command("set_property", "mute", not bool(get_property("mute", False)))
+                self.send_json(200, status())
             elif path == "/skip":
                 mpv_command("playlist-next", "force")
                 self.send_json(200, status())
@@ -290,6 +297,14 @@ class Handler(BaseHTTPRequestHandler):
         result = status()
         result["queued"] = value
         self.send_json(200, result)
+
+    def handle_volume(self, body):
+        value = body.get("volume")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise BadRequest("'volume' must be a number between 0 and 100.")
+        volume = max(0, min(MAX_VOLUME, int(round(value))))
+        mpv_command("set_property", "volume", volume)
+        self.send_json(200, status())
 
 
 def main():

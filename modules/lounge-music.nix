@@ -29,11 +29,12 @@
         "--audio-display=no"
         "--no-config"
         "--terminal=no"
-        "--volume=100"
+        "--volume=${toString cfg.maxVolume}"
         "--ytdl-format=bestaudio/best"
         "--input-ipc-server=${mpvSocket}"
       ]
       ++ lib.optional (cfg.audioDevice != null) "--audio-device=${cfg.audioDevice}"
+      ++ lib.optional (cfg.audioFilter != null) "--af=${cfg.audioFilter}"
       ++ [
         "--ytdl-raw-options=${lib.concatStringsSep "," ytdlRawOptions}"
       ]
@@ -94,6 +95,24 @@
           type = lib.types.ints.positive;
           default = 25;
           description = "Maximum number of queued tracks.";
+        };
+
+        maxVolume = lib.mkOption {
+          type = lib.types.ints.between 0 100;
+          default = 100;
+          description = ''
+            Maximum software volume the control API will set (0-100). mpv also
+            starts at this level.
+          '';
+        };
+
+        audioFilter = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = "lavfi=[dynaudnorm=f=500:g=31]";
+          description = ''
+            mpv audio filter chain. The default uses ffmpeg's dynaudnorm to
+            even out loudness between tracks. Set to null to disable.
+          '';
         };
 
         maximizeAlsaMixer = lib.mkOption {
@@ -188,6 +207,7 @@
           environment = {
             BIND_ADDRESS = cfg.bindAddress;
             MAX_QUEUE_LENGTH = toString cfg.maxQueueLength;
+            MAX_VOLUME = toString cfg.maxVolume;
             MPV_SOCKET = mpvSocket;
             PORT = toString cfg.port;
           }

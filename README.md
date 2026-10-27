@@ -20,7 +20,7 @@ Add the scanned age key to the .sops.yaml file and reencrypt the secrets file wi
 /play  ->  discord bot  ->  http://192.168.1.10:8787  ->  mpv + yt-dlp  ->  speakers
 ```
 
-The player starts automatically as `lounge-music-mpv.service`; the control API is `lounge-music-agent.service`. mpv runs at 100% and the service best-effort sets common ALSA controls to 100% on startup; use the volume knob on the speakers for loudness. If you need to adjust the hardware mixer once, run `alsamixer` on the host.
+The player starts automatically as `lounge-music-mpv.service`; the control API is `lounge-music-agent.service`. mpv runs at 100% by default (configurable with `ieee-tamu.lounge-music.maxVolume`) and the service best-effort sets common ALSA controls to 100% on startup; use the volume knob on the speakers for coarse loudness. Audio is normalized with ffmpeg's `dynaudnorm` filter by default to even out quiet and loud tracks; disable or tune it with `ieee-tamu.lounge-music.audioFilter`. The Discord bot's `/volume` and `/mute` commands control mpv's software volume. If you need to adjust the hardware mixer once, run `alsamixer` on the host.
 
 Useful commands on the host:
 
