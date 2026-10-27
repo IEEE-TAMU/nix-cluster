@@ -21,6 +21,8 @@
       ytdlRawOptions = [
         "yes-playlist="
         "playlist-end=${toString cfg.maxQueueLength}"
+        # YouTube's default TVHTML5 URLs return 403 for some videos; visionos works.
+        "extractor-args=youtube:player_client=visionos"
       ]
       ++ lib.optional (cfg.ytdlpCookiesFile != null) "cookies=${toString cfg.ytdlpCookiesFile}";
       mpvArgs = [
