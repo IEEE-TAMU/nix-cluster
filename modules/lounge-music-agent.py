@@ -272,7 +272,15 @@ class Handler(BaseHTTPRequestHandler):
 
         target = resolve_input(value)
         requested_by = body.get("requestedBy")
+        previous_count = current["queueCount"]
         mpv_command("loadfile", target, "append-play")
+
+        # mpv's append-play is not reliable with the yt-dlp hook: it can add
+        # the entry but leave playlist-pos at -1, so nothing starts. When the
+        # player was idle, explicitly select the first newly queued entry.
+        if current["idle"]:
+            mpv_command("playlist-play-index", previous_count)
+
         print(
             f"lounge-music-agent: queued {value!r} requested by "
             f"{requested_by or 'unknown'}",
