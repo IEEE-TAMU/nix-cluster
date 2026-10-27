@@ -18,6 +18,11 @@
         pkgs.python3
         pkgs.alsa-utils
       ];
+      ytdlRawOptions = [
+        "yes-playlist="
+        "playlist-end=${toString cfg.maxQueueLength}"
+      ]
+      ++ lib.optional (cfg.ytdlpCookiesFile != null) "cookies=${toString cfg.ytdlpCookiesFile}";
       mpvArgs = [
         "--idle=yes"
         "--no-video"
@@ -29,8 +34,8 @@
         "--input-ipc-server=${mpvSocket}"
       ]
       ++ lib.optional (cfg.audioDevice != null) "--audio-device=${cfg.audioDevice}"
-      ++ lib.optionals (cfg.ytdlpCookiesFile != null) [
-        "--ytdl-raw-options=cookies=${toString cfg.ytdlpCookiesFile}"
+      ++ [
+        "--ytdl-raw-options=${lib.concatStringsSep "," ytdlRawOptions}"
       ]
       ++ cfg.extraMpvArgs;
     in

@@ -36,4 +36,4 @@ If YouTube starts asking for sign-in or bot verification, export a Netscape-form
 
 The control API is unauthenticated unless `ieee-tamu.lounge-music.tokenFile` is set (for example to a sops-nix secret containing a bearer token). Keep port 8787 on the trusted campus LAN. To enable auth, add a sops secret on the node, point `ieee-tamu.lounge-music.tokenFile` at `config.sops.secrets.<name>.path`, and set the same value as `MUSIC_AGENT_TOKEN` in `cluster-infra/secrets/discord.yaml`.
 
-Spotify links are not supported yet. Only YouTube, YouTube Music, SoundCloud, and Bandcamp URLs (plus free-text search) are accepted.
+Spotify links are not supported yet. Only YouTube, YouTube Music, SoundCloud, and Bandcamp URLs (plus free-text search) are accepted. YouTube playlists are expanded up to `ieee-tamu.lounge-music.maxQueueLength` entries (25 by default).
