@@ -16,6 +16,14 @@
             initial = true;
           };
         };
+
+        # Speakers in the officer lounge are wired to this node.
+        ieee-tamu.lounge-music = {
+          enable = true;
+          # If mpv picks HDMI instead of the analog jack, set this to the
+          # analog output reported by `mpv --audio-device=help`, e.g.:
+          # audioDevice = "alsa/hw:CARD=PCH,DEV=0";
+        };
       }
     ];
   };

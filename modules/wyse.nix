@@ -14,6 +14,7 @@
         inputs.self.modules.nixos.cluster-node
         inputs.self.modules.nixos.ha-vip
         inputs.self.modules.nixos.network-map
+        inputs.self.modules.nixos.lounge-music
         inputs.self.modules.nixos.binary-cache
         inputs.self.modules.nixos.minimal
         ../hardware/wyse-disko.nix
