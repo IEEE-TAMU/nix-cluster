@@ -132,6 +132,12 @@ def status(prune=True):
     if prune:
         prune_played()
     playlist = get_property("playlist", []) or []
+    position = get_property("playlist-pos", -1)
+    if prune and isinstance(position, int) and position > 0:
+        # A track may have advanced between the first prune and the reads.
+        prune_played()
+        playlist = get_property("playlist", []) or []
+        position = get_property("playlist-pos", -1)
     idle = bool(mpv_command("get_property", "idle-active"))
     paused = bool(get_property("pause", False))
     volume = get_property("volume", 100)
@@ -141,6 +147,7 @@ def status(prune=True):
         if isinstance(entry, dict):
             entries.append(
                 {
+                    "id": entry.get("id"),
                     "title": entry.get("title") or entry.get("filename"),
                     "current": bool(entry.get("current")),
                 }
@@ -156,7 +163,7 @@ def status(prune=True):
         "mute": bool(get_property("mute", False)),
         "position": get_property("time-pos"),
         "duration": get_property("duration"),
-        "queuePosition": get_property("playlist-pos"),
+        "queuePosition": position,
         "queueCount": len(playlist),
         "queue": entries,
     }
@@ -265,8 +272,11 @@ class Handler(BaseHTTPRequestHandler):
                 mpv_command("set_property", "mute", not bool(get_property("mute", False)))
                 self.send_json(200, status())
             elif path == "/skip":
-                mpv_command("playlist-next", "force")
-                self.send_json(200, status())
+                self.handle_skip(body)
+            elif path == "/remove":
+                self.handle_remove(body)
+            elif path == "/clear":
+                self.handle_clear()
             elif path == "/stop":
                 mpv_command("stop")
                 mpv_command("playlist-clear")
@@ -324,6 +334,69 @@ class Handler(BaseHTTPRequestHandler):
 
         result = status()
         result["queued"] = value
+        self.send_json(200, result)
+
+    def handle_skip(self, body):
+        count = body.get("count", 1)
+        if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+            raise BadRequest("'count' must be a positive integer.")
+
+        current = status()
+        position = current["queuePosition"]
+        total = current["queueCount"]
+        if not isinstance(position, int) or position < 0:
+            raise BadRequest("Nothing is playing.")
+
+        target = position + count
+        if target >= total:
+            # Skipping past the end stops playback.
+            skipped = total - position
+            mpv_command("stop")
+            mpv_command("playlist-clear")
+        else:
+            skipped = count
+            mpv_command("playlist-play-index", target)
+
+        result = status()
+        result["skipped"] = skipped
+        self.send_json(200, result)
+
+    def handle_remove(self, body):
+        entry_id = body.get("id")
+        if isinstance(entry_id, bool) or not isinstance(entry_id, int):
+            raise BadRequest("'id' must be an integer.")
+
+        playlist = get_property("playlist", []) or []
+        position = get_property("playlist-pos", -1)
+        for index, entry in enumerate(playlist):
+            if not isinstance(entry, dict) or entry.get("id") != entry_id:
+                continue
+            if isinstance(position, int) and index == position:
+                raise BadRequest("Cannot remove the currently playing track.")
+            if isinstance(position, int) and index < position:
+                raise BadRequest("That track has already played.")
+            mpv_command("playlist-remove", index)
+            result = status()
+            result["removedTitle"] = entry.get("title") or entry.get("filename")
+            self.send_json(200, result)
+            return
+
+        raise BadRequest("That track is no longer in the queue.")
+
+    def handle_clear(self):
+        playlist = get_property("playlist", []) or []
+        position = get_property("playlist-pos", -1)
+        removed = 0
+        if isinstance(position, int) and position >= 0:
+            for index in range(len(playlist) - 1, position, -1):
+                mpv_command("playlist-remove", index)
+                removed += 1
+        else:
+            removed = len(playlist)
+            mpv_command("playlist-clear")
+
+        result = status()
+        result["removedCount"] = removed
         self.send_json(200, result)
 
     def handle_volume(self, body):
