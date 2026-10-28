@@ -275,6 +275,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.handle_skip(body)
             elif path == "/remove":
                 self.handle_remove(body)
+            elif path == "/move":
+                self.handle_move(body)
             elif path == "/clear":
                 self.handle_clear()
             elif path == "/stop":
@@ -383,6 +385,49 @@ class Handler(BaseHTTPRequestHandler):
 
         raise BadRequest("That track is no longer in the queue.")
 
+    def handle_move(self, body):
+        entry_id = body.get("id")
+        target = body.get("position")
+        if isinstance(entry_id, bool) or not isinstance(entry_id, int):
+            raise BadRequest("'id' must be an integer.")
+        if isinstance(target, bool) or not isinstance(target, int) or target < 1:
+            raise BadRequest("'position' must be a positive integer.")
+
+        playlist = get_property("playlist", []) or []
+        position = get_property("playlist-pos", -1)
+        if not isinstance(position, int) or position < 0:
+            raise BadRequest("Nothing is playing.")
+
+        upcoming_count = len(playlist) - position - 1
+        if target > upcoming_count:
+            raise BadRequest(
+                f"There are only {upcoming_count} upcoming "
+                f"track{'' if upcoming_count == 1 else 's'}."
+            )
+
+        for from_index, entry in enumerate(playlist):
+            if not isinstance(entry, dict) or entry.get("id") != entry_id:
+                continue
+            if from_index == position:
+                raise BadRequest("Cannot move the currently playing track.")
+            if from_index < position:
+                raise BadRequest("That track has already played.")
+
+            # Absolute playlist index where the track should end up.
+            final_index = position + target
+            # mpv's playlist-move takes the index of the entry to insert
+            # *before*, so moving a track later needs +1.
+            mpv_index = final_index + 1 if from_index < final_index else final_index
+            if from_index != final_index:
+                mpv_command("playlist-move", from_index, mpv_index)
+
+            result = status()
+            result["movedTitle"] = entry.get("title") or entry.get("filename")
+            self.send_json(200, result)
+            return
+
+        raise BadRequest("That track is no longer in the queue.")
+    
     def handle_clear(self):
         playlist = get_property("playlist", []) or []
         position = get_property("playlist-pos", -1)
