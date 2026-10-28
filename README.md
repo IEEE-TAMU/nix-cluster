@@ -36,4 +36,6 @@ If YouTube starts asking for sign-in or bot verification, export a Netscape-form
 
 The control API is unauthenticated unless `ieee-tamu.lounge-music.tokenFile` is set (for example to a sops-nix secret containing a bearer token). Keep port 8787 on the trusted campus LAN. To enable auth, add a sops secret on the node, point `ieee-tamu.lounge-music.tokenFile` at `config.sops.secrets.<name>.path`, and set the same value as `MUSIC_AGENT_TOKEN` in `cluster-infra/secrets/discord.yaml`.
 
+Finished tracks are pruned from mpv's playlist on the next control/status call, and stale entries are cleared before starting a new track while idle. This keeps the 25-track limit scoped to the current and upcoming tracks.
+
 Spotify links are not supported yet. Only YouTube, YouTube Music, SoundCloud, and Bandcamp URLs (plus free-text search) are accepted. YouTube playlists are expanded up to `ieee-tamu.lounge-music.maxQueueLength` entries (25 by default). yt-dlp is pinned to the `visionos` player client because YouTube's default TVHTML5 URLs return 403 for some videos.

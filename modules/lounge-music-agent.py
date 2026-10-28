@@ -6,6 +6,7 @@ import json
 import os
 import socket
 import threading
+import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -115,7 +116,21 @@ def get_property(name, default=None):
     return default if value is None else value
 
 
-def status():
+def prune_played():
+    """Drop playlist entries before the currently playing one."""
+    position = get_property("playlist-pos", -1)
+    if not isinstance(position, int) or position <= 0:
+        return
+    for index in range(position - 1, -1, -1):
+        try:
+            mpv_command("playlist-remove", index)
+        except MpvError:
+            break
+
+
+def status(prune=True):
+    if prune:
+        prune_played()
     playlist = get_property("playlist", []) or []
     idle = bool(mpv_command("get_property", "idle-active"))
     paused = bool(get_property("pause", False))
@@ -274,6 +289,19 @@ class Handler(BaseHTTPRequestHandler):
             )
 
         current = status()
+
+        # If nothing is playing, any entries left in the playlist are finished
+        # or failed tracks. Clear them so they don't count against the queue
+        # limit. Re-check after a short delay to avoid clearing during a track
+        # transition.
+        if current["idle"] and current["queueCount"] > 0:
+            time.sleep(0.3)
+            if bool(get_property("idle-active", True)):
+                mpv_command("playlist-clear")
+                current["queueCount"] = 0
+            else:
+                current["idle"] = False
+
         if current["queueCount"] >= MAX_QUEUE_LENGTH:
             raise BadRequest(f"The queue is full ({MAX_QUEUE_LENGTH} tracks).")
 
