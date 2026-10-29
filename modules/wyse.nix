@@ -39,7 +39,20 @@
         extra-trusted-public-keys = [
           "ieeetamu.cachix.org-1:2GZnWNg5DRoPlUGP8V2EB3YpkTtfw2wCHf4VJye4ZhI="
         ];
+        auto-optimise-store = true;
       };
+
+      nix.gc = {
+        automatic = true;
+        dates = "weekly";
+        options = "--delete-older-than 14d";
+      };
+
+      services.journald.extraConfig = ''
+        SystemMaxUse=2G
+        SystemMaxFileSize=200M
+        MaxRetentionSec=6month
+      '';
 
       sops.defaultSopsFile = ../hosts/secrets.yaml;
       sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
