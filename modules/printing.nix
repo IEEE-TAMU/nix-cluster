@@ -142,8 +142,8 @@
         systemd.services.print-agent = {
           description = "Printer control API";
           wantedBy = [ "multi-user.target" ];
-          after = [ "cups.service" ] ++ lib.optional (cfg.tokenFile != null) "sops-install-secrets.service";
-          requires = [ "cups.service" ];
+          after = [ "cups.socket" ] ++ lib.optional (cfg.tokenFile != null) "sops-install-secrets.service";
+          wants = [ "cups.socket" ];
           path = servicePath;
           environment = {
             BIND_ADDRESS = cfg.bindAddress;
