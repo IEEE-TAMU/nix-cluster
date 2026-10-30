@@ -7,6 +7,7 @@
   flake.nixosConfigurations.ieee-tamu-5B = inputs.nixpkgs.lib.nixosSystem {
     modules = [
       self.modules.nixos.wyse
+      self.modules.nixos.printing
       {
         networking.hostName = "ieee-tamu-5B";
         ieee-tamu.cluster = {
@@ -23,6 +24,12 @@
           # If mpv picks HDMI instead of the analog jack, set this to the
           # analog output reported by `mpv --audio-device=help`, e.g.:
           # audioDevice = "alsa/hw:CARD=PCH,DEV=0";
+        };
+
+        # Brother MFC-7360N in the officer lounge is on the cluster LAN.
+        ieee-tamu.printing = {
+          enable = true;
+          deviceUri = "lpd://192.168.1.38/binary_p1";
         };
       }
     ];

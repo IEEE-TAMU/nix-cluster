@@ -39,3 +39,26 @@ The control API is unauthenticated unless `ieee-tamu.lounge-music.tokenFile` is 
 Finished tracks are pruned from mpv's playlist on the next control/status call, and stale entries are cleared before starting a new track while idle. This keeps the 25-track limit scoped to the current and upcoming tracks.
 
 Spotify links are not supported yet. Only YouTube, YouTube Music, SoundCloud, and Bandcamp URLs (plus free-text search) are accepted. YouTube playlists are expanded up to `ieee-tamu.lounge-music.maxQueueLength` entries (25 by default). yt-dlp is pinned to the `visionos` player client because YouTube's default TVHTML5 URLs return 403 for some videos.
+
+## Printing
+
+`ieee-tamu-5B` also runs CUPS for the Brother MFC-7360N in the officer lounge. The printer is network-attached at `192.168.1.38` (`lpd://192.168.1.38/binary_p1`). The Discord bot talks to a small HTTP API rather than CUPS directly:
+
+```
+/print  ->  discord bot  ->  http://192.168.1.10:8788  ->  lp  ->  Brother MFC-7360N
+```
+
+The module is `ieee-tamu.printing`; CUPS is `cups.service` and the control API is `print-agent.service`. It accepts PDF, PNG, JPEG, and plain-text files up to 10 MB and 20 copies per request. Printer state and queued jobs are available from `GET /status`; jobs can be cancelled with `POST /cancel`.
+
+Useful commands on the host:
+
+```bash
+systemctl status cups print-agent
+journalctl -u print-agent -f
+lpstat -p Brother_MFC-7360N
+lpstat -W not-completed -o Brother_MFC-7360N
+lp -d Brother_MFC-7360N /path/to/test.pdf
+curl -s http://localhost:8788/health
+```
+
+The control API is unauthenticated unless `ieee-tamu.printing.tokenFile` is set (for example to a sops-nix secret containing a bearer token). Keep port 8788 on the trusted campus LAN. To enable auth, add a sops secret on the node, point `ieee-tamu.printing.tokenFile` at `config.sops.secrets.<name>.path`, and set the same value as `PRINT_AGENT_TOKEN` in `cluster-infra/secrets/discord.yaml`.
