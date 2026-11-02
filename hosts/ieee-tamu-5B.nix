@@ -22,7 +22,7 @@
           ieee-tamu.wifi-ap = {
             enable = true;
             ssid = "IEEE TAMU Lounge";
-            hidden = true;
+            # hidden = true;
             passwordFile = config.sops.secrets.wifi_ap_password.path;
           };
 
