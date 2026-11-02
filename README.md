@@ -62,3 +62,28 @@ curl -s http://localhost:8788/health
 ```
 
 The control API is unauthenticated unless `ieee-tamu.printing.tokenFile` is set (for example to a sops-nix secret containing a bearer token). Keep port 8788 on the trusted campus LAN. To enable auth, add a sops secret on the node, point `ieee-tamu.printing.tokenFile` at `config.sops.secrets.<name>.path`, and set the same value as `PRINT_AGENT_TOKEN` in `cluster-infra/secrets/discord.yaml`.
+
+## Wi-Fi for IoT devices
+
+`ieee-tamu-5B` also runs a 2.4 GHz WPA2 access point for devices that cannot use the campus WPA-Enterprise network. The wired `enp1s0` and wireless `wlp0s12f0` interfaces are bridged into `br0`, so wireless clients get a normal IEEE LAN address (DHCP from the LAN router) rather than being NATed. The host's cluster IP and keepalived VIP both live on `br0`.
+
+The network is named `IEEE TAMU Lounge` and is hidden. Its WPA2 passphrase is managed through the cluster secrets.
+
+Hidden SSIDs are not a security control. Bambu's setup app scans for broadcast networks, so P1/A1 printers should be joined to this hidden network with a `user_wifi.cfg` on the root of the microSD card:
+
+```
+ssid: IEEE TAMU Lounge
+password: <the configured WPA2 passphrase>
+```
+
+Insert the card and restart the printer. The passphrase is alphanumeric only, so it also works with the on-screen keyboard if the network is temporarily unhidden (`ieee-tamu.wifi-ap.hidden = false`). The module is `ieee-tamu.wifi-ap`; useful commands on the host:
+
+```bash
+systemctl status hostapd
+journalctl -u hostapd -f
+bridge link
+iw dev wlp0s12f0 info
+hostapd_cli status
+```
+
+Because the host IP moves from `enp1s0` to `br0`, the first deploy will briefly drop the SSH connection. Reconnect to `192.168.1.10`; the address is unchanged.

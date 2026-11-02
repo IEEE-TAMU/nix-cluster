@@ -10,6 +10,7 @@ This directory contains the NixOS and flake-parts modules used by the cluster. C
 - `network-map.nix` — Cluster hostname-to-IP mapping for `/etc/hosts` and interface config.
 - `lounge-music.nix` — Headless mpv/yt-dlp player plus an HTTP control API for the officer lounge speakers.
 - `printing.nix` — CUPS printer plus an HTTP control API for the officer lounge printer.
+- `wifi-ap.nix` — Bridged 2.4 GHz WPA2 access point for IoT devices, used by the Bambu printer.
 - `ci.nix` — CI/CD support via nix-github-actions for GitHub Actions.
 - `minimal.nix` — Minimal NixOS profile (headless, minimal kernel modules).
 - `meta.nix` — Metadata options (owner, flake URL).
