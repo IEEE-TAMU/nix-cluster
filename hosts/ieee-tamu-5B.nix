@@ -22,6 +22,9 @@
           ieee-tamu.wifi-ap = {
             enable = true;
             ssid = "IEEE TAMU Lounge";
+            # Channel 6 is shared with nearby campus APs and printer SSIDs.
+            # Channel 11 tested clean (0% loss vs 3.5-4% on channel 6).
+            channel = 11;
             # hidden = true;
             passwordFile = config.sops.secrets.wifi_ap_password.path;
           };
