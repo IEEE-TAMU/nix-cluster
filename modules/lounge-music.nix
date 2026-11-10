@@ -17,7 +17,8 @@
         pkgs.deno
         pkgs.python3
         pkgs.alsa-utils
-      ];
+      ]
+      ++ lib.optional cfg.spotify.enable pkgs.librespot;
       ytdlRawOptions = [
         "yes-playlist="
         "playlist-end=${toString cfg.maxQueueLength}"
@@ -103,8 +104,10 @@
           type = lib.types.ints.between 0 100;
           default = 100;
           description = ''
-            Maximum software volume the control API will set (0-100). mpv also
-            starts at this level.
+            Maximum software volume the control API will set for mpv and
+            Spotify (0-100). mpv also starts at this level. The Spotify app can
+            still change the Connect device volume directly; use the physical
+            speaker knob for a hard limit.
           '';
         };
 
@@ -133,6 +136,46 @@
           default = [ ];
           description = "Extra arguments appended to the mpv command line.";
         };
+
+        spotify = {
+          enable = lib.mkEnableOption "Spotify playback via librespot";
+
+          clientId = lib.mkOption {
+            type = lib.types.str;
+            default = "";
+            description = ''
+              Client ID of the Spotify Developer app used by the lounge.
+              The app must be in Development Mode, the linked Spotify account
+              must be added to the app's user list, and the redirect URI below
+              must be registered on the app. A client secret is not used.
+            '';
+          };
+
+          redirectUri = lib.mkOption {
+            type = lib.types.str;
+            default = "https://lounge.ieeetamu.org/api/spotify/callback";
+            description = ''
+              Public callback URL handled by the lounge web app. This must
+              match the redirect URI registered in the Spotify Developer app.
+            '';
+          };
+
+          deviceName = lib.mkOption {
+            type = lib.types.str;
+            default = "IEEE TAMU Lounge";
+            description = "Name shown for the lounge in the Spotify app.";
+          };
+
+          bitrate = lib.mkOption {
+            type = lib.types.enum [
+              96
+              160
+              320
+            ];
+            default = 320;
+            description = "librespot streaming bitrate in kbps.";
+          };
+        };
       };
 
       config = lib.mkIf cfg.enable {
@@ -145,11 +188,14 @@
           home = "/var/lib/lounge-music";
         };
 
-        environment.systemPackages = with pkgs; [
-          alsa-utils
-          mpv
-          yt-dlp
-        ];
+        environment.systemPackages =
+          with pkgs;
+          [
+            alsa-utils
+            mpv
+            yt-dlp
+          ]
+          ++ lib.optional cfg.spotify.enable librespot;
 
         networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ cfg.port ];
 
@@ -172,7 +218,9 @@
             SupplementaryGroups = [ "audio" ];
             RuntimeDirectory = runtimeDirectory;
             StateDirectory = runtimeDirectory;
+            StateDirectoryMode = "0700";
             CacheDirectory = runtimeDirectory;
+            CacheDirectoryMode = "0700";
             Restart = "always";
             RestartSec = 2;
             ExecStart = "${pkgs.mpv}/bin/mpv ${lib.escapeShellArgs mpvArgs}";
@@ -202,16 +250,26 @@
           wantedBy = [ "multi-user.target" ];
           after = [
             "lounge-music-mpv.service"
+            "network-online.target"
           ]
           ++ lib.optional (cfg.tokenFile != null) "sops-install-secrets.service";
+          wants = [ "network-online.target" ];
           requires = [ "lounge-music-mpv.service" ];
           path = servicePath;
           environment = {
             BIND_ADDRESS = cfg.bindAddress;
+            HOME = "/var/lib/lounge-music";
+            XDG_CACHE_HOME = "/var/cache/lounge-music";
             MAX_QUEUE_LENGTH = toString cfg.maxQueueLength;
             MAX_VOLUME = toString cfg.maxVolume;
             MPV_SOCKET = mpvSocket;
             PORT = toString cfg.port;
+            SPOTIFY_ENABLED = if cfg.spotify.enable then "1" else "0";
+            SPOTIFY_CLIENT_ID = cfg.spotify.clientId;
+            SPOTIFY_REDIRECT_URI = cfg.spotify.redirectUri;
+            SPOTIFY_DEVICE_NAME = cfg.spotify.deviceName;
+            SPOTIFY_BITRATE = toString cfg.spotify.bitrate;
+            LIBRESPOT_BIN = lib.optionalString cfg.spotify.enable "${pkgs.librespot}/bin/librespot";
           }
           // lib.optionalAttrs (cfg.tokenFile != null) {
             TOKEN_FILE = toString cfg.tokenFile;
@@ -220,6 +278,10 @@
             Type = "simple";
             User = "lounge-music";
             Group = "lounge-music";
+            StateDirectory = runtimeDirectory;
+            StateDirectoryMode = "0700";
+            CacheDirectory = runtimeDirectory;
+            CacheDirectoryMode = "0700";
             Restart = "always";
             RestartSec = 2;
             ExecStart = "${pkgs.python3}/bin/python3 ${agentScript}";

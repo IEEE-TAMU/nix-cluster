@@ -56,10 +56,11 @@ The endpoint uses the router IP directly to avoid depending on DNS. If campus Wi
 
 ## Lounge music
 
-`ieee-tamu-5B` runs a headless mpv player for the speakers in the officer lounge. The Discord bot talks to it through a small HTTP API:
+`ieee-tamu-5B` runs a headless mpv player for the speakers in the officer lounge. The Discord bot and lounge web app talk to it through a small HTTP API:
 
 ```
-/play  ->  discord bot  ->  http://192.168.1.10:8787  ->  mpv + yt-dlp  ->  speakers
+/play  ->  discord bot or lounge web app  ->  http://192.168.1.10:8787  ->  mpv + yt-dlp  ->  speakers
+                                                     \->  Spotify Web API + librespot -> mpv
 ```
 
 The player starts automatically as `lounge-music-mpv.service`; the control API is `lounge-music-agent.service`. mpv runs at 100% by default (configurable with `ieee-tamu.lounge-music.maxVolume`) and the service best-effort sets common ALSA controls to 100% on startup; use the volume knob on the speakers for coarse loudness. Audio is normalized with ffmpeg's `dynaudnorm` filter by default to even out quiet and loud tracks; disable or tune it with `ieee-tamu.lounge-music.audioFilter`. The Discord bot's `/volume` and `/mute` commands control mpv's software volume. If you need to adjust the hardware mixer once, run `alsamixer` on the host.
@@ -80,7 +81,40 @@ The control API is unauthenticated unless `ieee-tamu.lounge-music.tokenFile` is 
 
 Finished tracks are pruned from mpv's playlist on the next control/status call, and stale entries are cleared before starting a new track while idle. This keeps the 25-track limit scoped to the current and upcoming tracks.
 
-Spotify links are not supported yet. Only YouTube, YouTube Music, SoundCloud, and Bandcamp URLs (plus free-text search) are accepted. YouTube playlists are expanded up to `ieee-tamu.lounge-music.maxQueueLength` entries (25 by default). yt-dlp is pinned to the `visionos` player client because YouTube's default TVHTML5 URLs return 403 for some videos.
+### Spotify
+
+The lounge can play Spotify tracks, albums, and playlists with a real Spotify Premium account. Spotify playback is separate from the mpv/yt-dlp queue: the agent resolves Spotify links through the Spotify Web API, `librespot` acts as a Spotify Connect device named `IEEE TAMU Lounge`, and librespot's PCM output is piped into mpv. This means mpv remains the only process that opens the ALSA device, so Spotify and YouTube audio do not fight over the sound card.
+
+Setup on `ieee-tamu-5B`:
+
+1. Create a Spotify Developer app at <https://developer.spotify.com/dashboard>. The account that owns the app must have Spotify Premium.
+2. Add the lounge's Spotify account to the app's user list (Development Mode allows a small number of users).
+3. Register this redirect URI on the app:
+   `https://lounge.ieeetamu.org/api/spotify/callback`
+4. Set `ieee-tamu.lounge-music.spotify.clientId` in `hosts/ieee-tamu-5B.nix` to the app's Client ID. No client secret is needed; the agent uses PKCE.
+5. Deploy the host and the lounge web app. Open <https://lounge.ieeetamu.org> as an officer and use **Connect Spotify**. Only officers and admins can link or unlink the shared account.
+
+Credentials are persisted by the music agent, not by the web app:
+
+- OAuth refresh token: `/var/lib/lounge-music/spotify/credentials.json` (mode `0600`)
+- librespot reusable credentials: `/var/lib/lounge-music/spotify/librespot/credentials.json`
+- Saved mpv queue/volume state: `/var/lib/lounge-music/player-state.json`
+
+The web app only forwards the OAuth authorization code to the agent; it never receives or stores the refresh token. The optional agent bearer token is still supported, but Spotify linking does not require it: the lounge web app's officer session is the access boundary.
+
+Spotify queue editing is limited by Spotify's API. `/remove`, `/move`, and `/clear` are rejected while Spotify is the active source; use the Spotify app for those operations. `/stop` pauses Spotify but does not clear Spotify's queue. Starting a Spotify track from the Spotify app while YouTube is playing automatically pauses the YouTube stream, and starting a YouTube/yt-dlp URL from Discord or the lounge web app pauses Spotify.
+
+Useful commands:
+
+```bash
+systemctl status lounge-music-mpv lounge-music-agent
+journalctl -u lounge-music-agent -f
+curl -s http://localhost:8787/spotify/status
+```
+
+If the Spotify refresh token is revoked (for example after changing the Spotify password), the lounge UI shows a reconnect error; use **Connect Spotify** again. The librespot credential cache is deleted when the account is disconnected.
+
+YouTube, YouTube Music, SoundCloud, Bandcamp, and Spotify URLs (plus free-text search) are supported. YouTube playlists are expanded up to `ieee-tamu.lounge-music.maxQueueLength` entries (25 by default); Spotify albums and playlists are capped to the same queue length. yt-dlp is pinned to the `visionos` player client because YouTube's default TVHTML5 URLs return 403 for some videos.
 
 ## Printing
 
