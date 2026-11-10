@@ -43,14 +43,6 @@
             # If mpv picks HDMI instead of the analog jack, set this to the
             # analog output reported by `mpv --audio-device=help`, e.g.:
             # audioDevice = "alsa/hw:CARD=PCH,DEV=0";
-            spotify = {
-              enable = true;
-              # Create a Spotify Developer app at
-              # https://developer.spotify.com/dashboard, add the lounge
-              # account to its user list, and register this redirect URI:
-              # https://lounge.ieeetamu.org/api/spotify/callback
-              clientId = "feb04e8030924a99a479c3cbacd07b12";
-            };
           };
 
           # Brother MFC-7360N in the officer lounge is on the cluster LAN.
