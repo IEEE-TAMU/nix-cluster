@@ -198,6 +198,7 @@
           ++ lib.optional cfg.spotify.enable librespot;
 
         networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ cfg.port ];
+        networking.firewall.allowedUDPPorts = lib.optionals cfg.spotify.enable [ 5353 ];
 
         systemd.services.lounge-music-mpv = {
           description = "Lounge music player (mpv)";
