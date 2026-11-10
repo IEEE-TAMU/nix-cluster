@@ -431,10 +431,13 @@ def spotify_error_message(error, fallback):
         raw = error.read(65536)
     except Exception:  # noqa: BLE001 - best effort error decoding
         return fallback
-    try:
-        payload = json.loads(raw.decode("utf-8", "replace"))
-    except json.JSONDecodeError:
+    text = raw.decode("utf-8", "replace").strip()
+    if not text:
         return fallback
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return text[:300]
     if isinstance(payload, dict):
         message = payload.get("error_description") or payload.get("error")
         if isinstance(message, dict):
@@ -583,9 +586,20 @@ def spotify_api_request(
                 body=body,
                 retry=False,
             )
-        if error.code == 403 and "premium" in message.lower():
+        if error.code == 403:
+            lower = message.lower()
+            if "not registered" in lower or "not authorized" in lower:
+                raise SpotifyAuthError(
+                    "That Spotify account is not registered for the lounge Spotify app. "
+                    "Add it under Users and Access in the Spotify Developer Dashboard, "
+                    "or use the lounge's approved Premium account."
+                ) from error
+            if "premium" in lower:
+                raise SpotifyAuthError(
+                    "Spotify Premium is required for playback on the lounge account."
+                ) from error
             raise SpotifyUnavailable(
-                "Spotify Premium is required for playback on the lounge account."
+                f"Spotify API error ({error.code}): {message}"
             ) from error
         raise SpotifyUnavailable(
             f"Spotify API error ({error.code}): {message}"
@@ -900,6 +914,9 @@ class SpotifyState:
                     progress_ms=progress_ms,
                 )
             except SpotifyAuthError as error:
+                with _token_lock:
+                    delete_spotify_credentials()
+                self.service.supervisor.stop()
                 self._set(
                     configured=True,
                     linked=False,
@@ -1384,33 +1401,46 @@ class SpotifyService:
 
         try:
             profile = spotify_me()
+        except SpotifyAuthError as error:
+            with _token_lock:
+                delete_spotify_credentials()
+            raise SpotifyAuthError(str(error)) from error
         except SpotifyError as error:
-            log(f"cannot read the Spotify profile after linking: {error}")
-            profile = {}
+            with _token_lock:
+                delete_spotify_credentials()
+            raise SpotifyUnavailable(
+                f"Could not verify the Spotify account: {error}"
+            ) from error
 
-        if isinstance(profile, dict) and (
+        if not isinstance(profile, dict) or not (
             profile.get("id") or profile.get("display_name")
         ):
-            account = {
-                "id": profile.get("id"),
-                "display_name": profile.get("display_name")
-                or profile.get("id")
-                or "Spotify",
-                "product": profile.get("product"),
-                "email": profile.get("email"),
-            }
             with _token_lock:
-                current = load_spotify_credentials() or credentials
-                current["account"] = account
-                save_spotify_credentials(current)
-        else:
-            account = credentials.get("account") or {}
-
-        if account.get("product") and account["product"] != "premium":
-            log(
-                "WARNING: the linked Spotify account is not Premium; "
-                "librespot cannot play it."
+                delete_spotify_credentials()
+            raise SpotifyAuthError(
+                "Spotify did not return account details. Try connecting again."
             )
+
+        if profile.get("product") != "premium":
+            with _token_lock:
+                delete_spotify_credentials()
+            raise SpotifyAuthError(
+                "Spotify Premium is required for the lounge account. "
+                "Link a Premium account, or upgrade that account and try again."
+            )
+
+        account = {
+            "id": profile.get("id"),
+            "display_name": profile.get("display_name")
+            or profile.get("id")
+            or "Spotify",
+            "product": profile.get("product"),
+            "email": profile.get("email"),
+        }
+        with _token_lock:
+            current = load_spotify_credentials() or credentials
+            current["account"] = account
+            save_spotify_credentials(current)
 
         self.supervisor.reset_and_start()
         self.state.refresh()
