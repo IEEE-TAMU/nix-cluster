@@ -9,6 +9,8 @@ pkgs.mkShellNoCC {
       sops
       openssh
       ssh-to-age
+      wireguard-tools
+      jq
       ;
   };
 }

@@ -12,6 +12,48 @@ Add the scanned age key to the .sops.yaml file and reencrypt the secrets file wi
 ## Deploying the cluster
 `nixos-rebuild switch -s --use-remote-sudo --fast --flake .#<server-name> --target-host root@<ip-address> --build-host root@<ip-address> --verbose`
 
+## Remote access (WireGuard)
+
+`ieee-tamu-8J` runs a WireGuard server for access to the `192.168.1.0/24` LAN from the campus network. It is intentionally not exposed to the public internet: the router only needs to forward WAN UDP `51820` to `192.168.1.11`.
+
+The server key and a shared preshared key live in `hosts/secrets.yaml` as `wg_server_private_key` and `wg_preshared_key`. Clients do not need accounts; each device gets a WireGuard keypair and a tunnel address. Peers are tracked in `hosts/wireguard-peers.json`; the `ieee-tamu-8J` configuration turns that file into WireGuard peers.
+
+Generate a new client config with:
+
+```bash
+./scripts/wireguard-client.sh add caleb-phone
+```
+
+This generates the keypair, allocates the next `10.99.0.x` address, updates `hosts/wireguard-peers.json`, and writes `wireguard-clients/caleb-phone.conf` (mode `0600`, ignored by git). It then prints the commit/push/deploy commands. The server must be redeployed before the new config can connect.
+
+Other commands:
+
+```bash
+./scripts/wireguard-client.sh list
+./scripts/wireguard-client.sh revoke caleb-phone
+```
+
+`revoke` removes the peer from `hosts/wireguard-peers.json`; redeploy `ieee-tamu-8J` to apply it. The script needs `sops` access to the server key and preshared key, so run it from a machine that can decrypt `hosts/secrets.yaml`.
+
+A generated client config looks like this (keep it at `/etc/wireguard/ieee-tamu.conf`, mode `0600`):
+
+```ini
+[Interface]
+PrivateKey = <client private key>
+Address = 10.99.0.2/32
+
+[Peer]
+PublicKey = <server public key>
+PresharedKey = <preshared key>
+Endpoint = 10.125.185.49:51820
+AllowedIPs = 192.168.1.0/24, 10.99.0.0/24
+PersistentKeepalive = 25
+```
+
+Then `wg-quick up ieee-tamu`. Only the IEEE LAN is routed through the tunnel; other traffic stays on the campus network. The server source-NATs tunnel traffic onto the LAN, so no routes need to be added to the other cluster hosts, and the router at `192.168.1.1` is reachable too.
+
+The endpoint uses the router IP directly to avoid depending on DNS. If campus Wi-Fi blocks UDP `51820`, change `ieee-tamu.wireguard.listenPort` and the router forward to UDP `443`.
+
 ## Lounge music
 
 `ieee-tamu-5B` runs a headless mpv player for the speakers in the officer lounge. The Discord bot talks to it through a small HTTP API:
