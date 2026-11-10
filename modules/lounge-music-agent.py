@@ -427,7 +427,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         raise BadRequest("That track is no longer in the queue.")
-    
+
     def handle_clear(self):
         playlist = get_property("playlist", []) or []
         position = get_property("playlist-pos", -1)
