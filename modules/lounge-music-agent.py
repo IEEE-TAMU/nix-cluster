@@ -74,6 +74,12 @@ SPOTIFY_DEVICE_NAME = (
     or "IEEE TAMU Lounge"
 )
 try:
+    SPOTIFY_OAUTH_PORT = int(os.environ.get("SPOTIFY_OAUTH_PORT", "5588"))
+except ValueError:
+    SPOTIFY_OAUTH_PORT = 5588
+if not 1 <= SPOTIFY_OAUTH_PORT <= 65535:
+    SPOTIFY_OAUTH_PORT = 5588
+try:
     SPOTIFY_BITRATE = int(os.environ.get("SPOTIFY_BITRATE", "320"))
 except ValueError:
     SPOTIFY_BITRATE = 320
@@ -1070,6 +1076,21 @@ class LibrespotSupervisor:
         with self._lock:
             return self._generation
 
+    def has_stored_credentials(self):
+        credentials = read_json(SPOTIFY_LIBRESPOT_CREDENTIALS_PATH, None)
+        return bool(
+            isinstance(credentials, dict)
+            and credentials.get("auth_type") == 1
+            and credentials.get("auth_data")
+        )
+
+    def stored_username(self):
+        credentials = read_json(SPOTIFY_LIBRESPOT_CREDENTIALS_PATH, None)
+        if not isinstance(credentials, dict):
+            return None
+        username = credentials.get("username")
+        return username if isinstance(username, str) and username else None
+
     def ensure_started(self):
         if not spotify_configured():
             return
@@ -1082,14 +1103,24 @@ class LibrespotSupervisor:
                 self.last_error = str(error)
                 log(f"cannot start librespot: {error}")
 
-    def _start_locked(self):
-        if not load_spotify_credentials():
-            return
+    def begin_oauth_login(self):
+        if not spotify_configured():
+            raise SpotifyNotConfigured(
+                "Spotify is not configured on the music host."
+            )
+        self.stop()
+        shutil.rmtree(SPOTIFY_LIBRESPOT_DIR, ignore_errors=True)
         ensure_dir(SPOTIFY_LIBRESPOT_DIR, 0o700)
-        if not self._has_stored_credentials():
-            token = spotify_access_token()
-            self._write_token_credentials_locked(token)
+        self._attempt = 0
+        self.last_error = None
+        with self._lock:
+            try:
+                return self._start_locked(oauth=True)
+            except Exception as error:
+                self.last_error = str(error)
+                raise
 
+    def _librespot_args(self, oauth=False):
         args = [
             LIBRESPOT_BIN,
             "--backend",
@@ -1112,10 +1143,36 @@ class LibrespotSupervisor:
             "--system-cache",
             SPOTIFY_LIBRESPOT_DIR,
         ]
+        if oauth:
+            args.extend(
+                [
+                    "--enable-oauth",
+                    "--oauth-port",
+                    str(SPOTIFY_OAUTH_PORT),
+                ]
+            )
+        return args
 
-        log(f"starting librespot as {SPOTIFY_DEVICE_NAME!r}")
+    def _start_locked(self, oauth=False):
+        ensure_dir(SPOTIFY_LIBRESPOT_DIR, 0o700)
+        legacy_credentials = read_json(SPOTIFY_LIBRESPOT_CREDENTIALS_PATH, None)
+        if (
+            isinstance(legacy_credentials, dict)
+            and legacy_credentials.get("auth_type") == 3
+        ):
+            # Older agents bootstrapped librespot with our Web API access token.
+            # Spotify login5 rejects those sessions, so remove the stale cache.
+            log("removing legacy developer-token librespot credentials")
+            try:
+                os.unlink(SPOTIFY_LIBRESPOT_CREDENTIALS_PATH)
+            except FileNotFoundError:
+                pass
+        log(
+            f"starting librespot as {SPOTIFY_DEVICE_NAME!r}"
+            + (" (official OAuth pairing)" if oauth else "")
+        )
         proc = subprocess.Popen(
-            args,
+            self._librespot_args(oauth=oauth),
             stdout=subprocess.PIPE,
             stderr=None,
             bufsize=0,
@@ -1128,6 +1185,18 @@ class LibrespotSupervisor:
         self._attempt += 1
         self.last_error = None
 
+        url = None
+        if oauth:
+            try:
+                url = self._read_oauth_url(proc)
+            except Exception:
+                self._terminate(proc)
+                with self._lock:
+                    if self._proc is proc:
+                        self._proc = None
+                    self._generation += 1
+                raise
+
         threading.Thread(
             target=self._read_stdout,
             args=(proc, generation),
@@ -1136,10 +1205,46 @@ class LibrespotSupervisor:
         ).start()
         threading.Thread(
             target=self._monitor,
-            args=(proc, generation),
+            args=(proc, generation, oauth),
             name="librespot-monitor",
             daemon=True,
         ).start()
+        return url
+
+    def _read_oauth_url(self, proc):
+        result = queue.Queue()
+
+        def read_lines():
+            try:
+                while True:
+                    line = proc.stdout.readline()
+                    if not line:
+                        break
+                    text = line.decode("utf-8", "replace").strip()
+                    if text.startswith("Browse to: "):
+                        result.put(text[len("Browse to: ") :])
+                        return
+            except Exception as error:  # noqa: BLE001 - forwarded to caller
+                result.put(error)
+                return
+            result.put(
+                SpotifyUnavailable(
+                    "librespot exited before printing the Spotify login URL."
+                )
+            )
+
+        threading.Thread(
+            target=read_lines, name="librespot-oauth-url", daemon=True
+        ).start()
+        try:
+            value = result.get(timeout=10)
+        except queue.Empty as error:
+            raise SpotifyUnavailable(
+                "Timed out waiting for the Spotify login URL."
+            ) from error
+        if isinstance(value, Exception):
+            raise value
+        return value
 
     def _read_stdout(self, proc, generation):
         try:
@@ -1151,7 +1256,7 @@ class LibrespotSupervisor:
         except (OSError, ValueError) as error:
             log(f"librespot audio pipe closed: {error}")
 
-    def _monitor(self, proc, generation):
+    def _monitor(self, proc, generation, oauth=False):
         code = proc.wait()
         with self._lock:
             if self._proc is proc:
@@ -1165,22 +1270,16 @@ class LibrespotSupervisor:
         if runtime > 60:
             self._attempt = 0
 
-        if not spotify_configured() or not load_spotify_credentials():
+        if oauth and not self.has_stored_credentials():
+            self.last_error = (
+                "Spotify player pairing was not completed. "
+                "Run the SSH tunnel and open the login link again."
+            )
+            log(self.last_error)
             return
 
-        if runtime < 30:
-            try:
-                token = spotify_access_token(force_refresh=True)
-                with self._lock:
-                    if self._generation != generation:
-                        return
-                    self._write_token_credentials_locked(token)
-            except SpotifyAuthError as error:
-                self.last_error = str(error)
-                log(f"Spotify credentials need to be reconnected: {error}")
-                return
-            except SpotifyError as error:
-                log(f"cannot refresh Spotify credentials: {error}")
+        if not spotify_configured():
+            return
 
         if self._attempt >= 4:
             self.last_error = "librespot keeps exiting; check the lounge music journal."
@@ -1195,47 +1294,33 @@ class LibrespotSupervisor:
                 return
         self.ensure_started()
 
-    def _has_stored_credentials(self):
-        credentials = read_json(SPOTIFY_LIBRESPOT_CREDENTIALS_PATH, None)
-        return bool(
-            isinstance(credentials, dict)
-            and credentials.get("auth_type") == 1
-            and credentials.get("auth_data")
-        )
-
-    def _write_token_credentials_locked(self, token):
-        ensure_dir(SPOTIFY_LIBRESPOT_DIR, 0o700)
-        write_json(
-            SPOTIFY_LIBRESPOT_CREDENTIALS_PATH,
-            {
-                "username": None,
-                "auth_type": 3,
-                "auth_data": base64.b64encode(token.encode("utf-8")).decode("ascii"),
-            },
-        )
-
-    def reset_and_start(self):
+    def reset_and_start(self, clear_credentials=False):
         self.stop()
-        shutil.rmtree(SPOTIFY_LIBRESPOT_DIR, ignore_errors=True)
+        if clear_credentials:
+            shutil.rmtree(SPOTIFY_LIBRESPOT_DIR, ignore_errors=True)
         self._attempt = 0
         self.last_error = None
         self.ensure_started()
+
+    def _terminate(self, proc):
+        if proc is None or proc.poll() is not None:
+            return
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
 
     def stop(self):
         with self._lock:
             self._generation += 1
             proc = self._proc
             self._proc = None
-        if proc is not None and proc.poll() is None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                try:
-                    proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    pass
+        self._terminate(proc)
 
 
 # ---------------------------------------------------------------------------
@@ -1260,7 +1345,23 @@ class SpotifyService:
         self.supervisor.stop()
         self.relay.stop()
 
+    def begin_player_login(self):
+        url = self.supervisor.begin_oauth_login()
+        host = socket.gethostname() or "ieee-tamu-5B"
+        return {
+            "url": url,
+            "command": (
+                f"ssh -L {SPOTIFY_OAUTH_PORT}:127.0.0.1:{SPOTIFY_OAUTH_PORT} {host}"
+            ),
+        }
+
     def device_id(self):
+        if not self.supervisor.has_stored_credentials():
+            raise SpotifyUnavailable(
+                "The Spotify player is not paired yet. In the lounge web app, "
+                "use 'Set up Spotify player' and complete the one-time Spotify "
+                "login."
+            )
         with self._device_lock:
             generation = self.supervisor.generation()
             now = time.monotonic()
@@ -1302,6 +1403,7 @@ class SpotifyService:
             "product": account.get("product"),
             "deviceName": SPOTIFY_DEVICE_NAME,
             "deviceOnline": self.supervisor.is_running(),
+            "paired": self.supervisor.has_stored_credentials(),
             "error": snapshot.get("error") or self.supervisor.last_error,
         }
 
@@ -1442,7 +1544,13 @@ class SpotifyService:
             current["account"] = account
             save_spotify_credentials(current)
 
-        self.supervisor.reset_and_start()
+        cached_username = self.supervisor.stored_username()
+        clear_librespot = bool(
+            cached_username
+            and profile.get("id")
+            and cached_username.lower() != str(profile["id"]).lower()
+        )
+        self.supervisor.reset_and_start(clear_credentials=clear_librespot)
         self.state.refresh()
         return account
 
@@ -2120,6 +2228,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.handle_spotify_link()
             elif path == "/spotify/callback":
                 self.handle_spotify_callback(body)
+            elif path == "/spotify/player-login":
+                self.handle_spotify_player_login()
             elif path == "/spotify/disconnect":
                 self.handle_spotify_disconnect()
             else:
@@ -2477,6 +2587,12 @@ class Handler(BaseHTTPRequestHandler):
             raise BadRequest("'state' is required.")
         account = SPOTIFY.complete_link(code, state)
         self.send_json(200, {"ok": True, "account": account})
+
+    def handle_spotify_player_login(self):
+        if not SPOTIFY:
+            raise SpotifyNotConfigured("Spotify is not configured on the music host.")
+        result = SPOTIFY.begin_player_login()
+        self.send_json(200, {"ok": True, **result})
 
     def handle_spotify_disconnect(self):
         global _current_source

@@ -85,22 +85,33 @@ Finished tracks are pruned from mpv's playlist on the next control/status call, 
 
 The lounge can play Spotify tracks, albums, and playlists with a real Spotify Premium account. Spotify playback is separate from the mpv/yt-dlp queue: the agent resolves Spotify links through the Spotify Web API, `librespot` acts as a Spotify Connect device named `IEEE TAMU Lounge`, and librespot's PCM output is piped into mpv. This means mpv remains the only process that opens the ALSA device, so Spotify and YouTube audio do not fight over the sound card.
 
+Spotify has two separate connections:
+
+1. **Control account (Web API).** The lounge web app links a Spotify account through a Spotify Developer app. This link is used for search/queue/playback control. It is subject to Spotify Development Mode: the app owner must have Premium, and each Spotify account used must be listed under **Users and Access** in the dashboard (maximum 5 accounts). Use one shared Premium lounge account if possible; officers can control it through the lounge web app and Discord without linking their personal Spotify accounts. An account that is not on the list fails with `The user is not registered for this application`. Free accounts also fail because playback requires Premium.
+2. **Player pairing.** `librespot` needs its own official-client Spotify session. Spotify's `login5`/Connect rejects access tokens issued to third-party developer apps, even though the account authenticates. After **Connect Spotify**, use **Set up Spotify player** in the lounge web app. The UI shows a one-time SSH tunnel command and a Spotify login link:
+
+   ```bash
+   ssh -L 5588:127.0.0.1:5588 ieee-tamu-5B
+   ```
+
+   Keep the tunnel open, open the login link, and sign in with the **same Spotify account**. librespot caches reusable credentials in `/var/lib/lounge-music/spotify/librespot/`. As an alternative, while on the lounge LAN, open Spotify and select **IEEE TAMU Lounge** from the device picker; that also pairs librespot through the official client.
+
 Setup on `ieee-tamu-5B`:
 
 1. Create a Spotify Developer app at <https://developer.spotify.com/dashboard>. The account that owns the app must have Spotify Premium.
-2. Add the lounge's Spotify account to the app's user list (Development Mode allows a small number of users).
+2. Add the Spotify account(s) the lounge will use under **Users and Access** (maximum 5). For a shared lounge, this is usually just the lounge account.
 3. Register this redirect URI on the app:
    `https://lounge.ieeetamu.org/api/spotify/callback`
 4. Set `ieee-tamu.lounge-music.spotify.clientId` in `hosts/ieee-tamu-5B.nix` to the app's Client ID. No client secret is needed; the agent uses PKCE.
-5. Deploy the host and the lounge web app. Open <https://lounge.ieeetamu.org> as an officer and use **Connect Spotify**. Only officers and admins can link or unlink the shared account.
+5. Deploy the host and the lounge web app. Open <https://lounge.ieeetamu.org> as an officer, use **Connect Spotify**, then **Set up Spotify player**. Only officers and admins can link or unlink the shared account.
 
 Credentials are persisted by the music agent, not by the web app:
 
-- OAuth refresh token: `/var/lib/lounge-music/spotify/credentials.json` (mode `0600`)
-- librespot reusable credentials: `/var/lib/lounge-music/spotify/librespot/credentials.json`
+- Web API OAuth refresh token: `/var/lib/lounge-music/spotify/credentials.json` (mode `0600`)
+- librespot official-player credentials: `/var/lib/lounge-music/spotify/librespot/credentials.json`
 - Saved mpv queue/volume state: `/var/lib/lounge-music/player-state.json`
 
-The web app only forwards the OAuth authorization code to the agent; it never receives or stores the refresh token. The optional agent bearer token is still supported, but Spotify linking does not require it: the lounge web app's officer session is the access boundary.
+The web app only forwards the Web API OAuth authorization code to the agent; it never receives or stores the refresh token. The optional agent bearer token is still supported, but Spotify linking does not require it: the lounge web app's officer session is the access boundary. The one-time player pairing is performed directly against librespot's loopback OAuth listener through the SSH tunnel shown in the UI.
 
 Spotify queue editing is limited by Spotify's API. `/remove`, `/move`, and `/clear` are rejected while Spotify is the active source; use the Spotify app for those operations. `/stop` pauses Spotify but does not clear Spotify's queue. Starting a Spotify track from the Spotify app while YouTube is playing automatically pauses the YouTube stream, and starting a YouTube/yt-dlp URL from Discord or the lounge web app pauses Spotify.
 
@@ -112,7 +123,7 @@ journalctl -u lounge-music-agent -f
 curl -s http://localhost:8787/spotify/status
 ```
 
-If the Spotify refresh token is revoked (for example after changing the Spotify password), the lounge UI shows a reconnect error; use **Connect Spotify** again. The librespot credential cache is deleted when the account is disconnected.
+If the Spotify Web API refresh token is revoked (for example after changing the Spotify password), the lounge UI shows a reconnect error; use **Connect Spotify** again. If librespot's player credentials are lost or the player account changes, use **Set up Spotify player** again. Disconnecting the Spotify account deletes both credentials.
 
 YouTube, YouTube Music, SoundCloud, Bandcamp, and Spotify URLs (plus free-text search) are supported. YouTube playlists are expanded up to `ieee-tamu.lounge-music.maxQueueLength` entries (25 by default); Spotify albums and playlists are capped to the same queue length. yt-dlp is pinned to the `visionos` player client because YouTube's default TVHTML5 URLs return 403 for some videos.
 
