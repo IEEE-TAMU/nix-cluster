@@ -3,5 +3,10 @@
     "publicKey": "CDcsEpI3TkNPAvpEE8TV12wOfasQEXNSdbm/uRzfdFg=",
     "address": "10.99.0.2/32",
     "created": "2026-11-10T12:12:20-06:00"
+  },
+  "nikhil": {
+    "publicKey": "sWh8umbwBg4udEP9OOt4/r0UMo9RdHAAZG4B9mOvYy0=",
+    "address": "10.99.0.3/32",
+    "created": "2026-11-18T16:48:59-06:00"
   }
 }
