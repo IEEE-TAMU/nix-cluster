@@ -678,7 +678,6 @@ def analyze_3mf(data, filename, plate=1):
             0.4,
         )
         return {
-            "gcode": gcode,
             "gcode_path": gcode_path,
             "gcode_size": len(gcode),
             "md5": computed_md5,
