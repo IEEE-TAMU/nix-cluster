@@ -119,7 +119,11 @@ The module is `ieee-tamu.bambu-printer`; the service is `bambu-printer-agent.ser
 - `GET /status` — state, progress, temperatures, fans, AMS/filament, errors, and camera availability
 - `GET /snapshot` — one JPEG frame from the chamber camera (RTSPS on port 322)
 - `GET /filaments` — AMS slots and the active tray
-- `POST /print?filename=...&plate=1&filament_map=1` — upload a pre-sliced `.gcode.3mf` over FTPS and start it. Use `dry_run=true` to inspect the parsed filaments and mapping, `start=false` to upload only, and `filament_map=1,3` to choose AMS slots per sliced filament (`ext` for the external spool). If `filament_map` is omitted, the agent auto-matches by filament type and color and returns `needsMapping` with the required filaments and available slots when it cannot.
+- `POST /print?filename=...&plate=1&start=false` — upload a pre-sliced `.gcode.3mf` over FTPS and return an `uploadId`, the sliced `filaments`, live AMS/external `slots`, `capabilities`, `printerState`, and the stored print options. No job is started and no mapping is guessed.
+- `POST /start` — JSON `{ "uploadId": "...", "filament_map": [0, 3] }` starts the uploaded file. The array is one global tray id per sliced filament; `254`/`255` or `"ext"` selects an external spool. The agent validates the mapping against the live slots and returns `needsMapping` with the current filaments and slots if it is wrong.
+- `POST /print?...&filament_map=1,3` — legacy upload-and-start in one request. It now requires an explicit mapping; `"auto"` or an omitted mapping is rejected.
+- `dry_run=true` on `/print` inspects the parsed file without uploading or starting.
+- Upload sessions expire after one hour. The submitted `.gcode.3mf` remains on the printer.
 - `POST /stop`, `/pause`, `/resume` — job control
 
 The printer's LAN access code is stored as the sops secret `bambu_x2d_access_code` and read by the `bambu-printer` service user. The MQTT connection uses `bblp` plus that code; FTPS uses implicit TLS on port 990 and reuses the control connection's TLS session; the camera uses the printer's RTSPS stream on port 322.
