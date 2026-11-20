@@ -160,6 +160,13 @@ def parse_float(value, default=None):
         return default
 
 
+def sanitize_temp(value):
+    temp = parse_float(value)
+    if temp is None or temp < -50 or temp > 500:
+        return None
+    return temp
+
+
 def parse_bool(value, default=False):
     if value is None:
         return default
@@ -699,8 +706,8 @@ def printer_snapshot():
         nozzles.append(
             {
                 "index": index,
-                "current": parse_float(extruder.get("temp")),
-                "target": parse_float(
+                "current": sanitize_temp(extruder.get("temp")),
+                "target": sanitize_temp(
                     print_state.get("nozzle_target_temper") if index == 0 else None
                 ),
                 "type": nozzle.get("type") or print_state.get("nozzle_type"),
@@ -712,9 +719,9 @@ def printer_snapshot():
         )
 
     ctc = device.get("ctc") if isinstance(device.get("ctc"), dict) else {}
-    chamber = parse_float((ctc.get("info") or {}).get("temp"))
+    chamber = sanitize_temp((ctc.get("info") or {}).get("temp"))
     if chamber is None:
-        chamber = parse_float(print_state.get("chamber_temper"))
+        chamber = sanitize_temp(print_state.get("chamber_temper"))
 
     ams = print_state.get("ams") if isinstance(print_state.get("ams"), dict) else {}
     tray_now = parse_int(ams.get("tray_now"), 255)
@@ -837,8 +844,8 @@ def printer_snapshot():
         },
         "temperatures": {
             "bed": {
-                "current": parse_float(print_state.get("bed_temper")),
-                "target": parse_float(print_state.get("bed_target_temper")),
+                "current": sanitize_temp(print_state.get("bed_temper")),
+                "target": sanitize_temp(print_state.get("bed_target_temper")),
             },
             "nozzles": nozzles,
             "chamber": {"current": chamber, "target": None},
