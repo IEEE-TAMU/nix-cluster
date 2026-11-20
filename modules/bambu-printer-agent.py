@@ -698,18 +698,23 @@ def printer_snapshot():
     signed_required = bool(fun & 0x20000000) if fun is not None else None
     developer_mode = (not signed_required) if signed_required is not None else None
 
+    nozzle_section = device.get("nozzle") if isinstance(device.get("nozzle"), dict) else {}
+    nozzle_metadata = nozzle_section.get("info") or []
     extruders = device.get("extruder", {}).get("info") or []
-    nozzle_metadata = device.get("nozzle", {}).get("info") or []
+    active_nozzle = parse_int(nozzle_section.get("tar_id"), 0)
+    active_nozzle_temp = sanitize_temp(print_state.get("nozzle_temper"))
+    active_nozzle_target = sanitize_temp(print_state.get("nozzle_target_temper"))
     nozzles = []
-    for index, extruder in enumerate(extruders):
-        nozzle = nozzle_metadata[index] if index < len(nozzle_metadata) else {}
+    for index, nozzle in enumerate(nozzle_metadata or extruders):
+        if not isinstance(nozzle, dict):
+            nozzle = {}
+        is_active = index == active_nozzle
         nozzles.append(
             {
                 "index": index,
-                "current": sanitize_temp(extruder.get("temp")),
-                "target": sanitize_temp(
-                    print_state.get("nozzle_target_temper") if index == 0 else None
-                ),
+                "current": active_nozzle_temp if is_active else None,
+                "target": active_nozzle_target if is_active else None,
+                "active": is_active,
                 "type": nozzle.get("type") or print_state.get("nozzle_type"),
                 "diameter": parse_float(
                     nozzle.get("diameter") or print_state.get("nozzle_diameter")
