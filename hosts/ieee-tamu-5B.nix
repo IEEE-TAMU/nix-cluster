@@ -8,6 +8,7 @@
     modules = [
       self.modules.nixos.wyse
       self.modules.nixos.printing
+      self.modules.nixos.bambu-printer
       self.modules.nixos.wifi-ap
       (
         { config, ... }:
@@ -19,6 +20,9 @@
           ieee-tamu.ha-vip.interface = "br0";
 
           sops.secrets.wifi_ap_password = { };
+          sops.secrets.bambu_x2d_access_code = {
+            owner = "bambu-printer";
+          };
           ieee-tamu.wifi-ap = {
             enable = true;
             ssid = "IEEE TAMU Lounge";
@@ -49,6 +53,12 @@
           ieee-tamu.printing = {
             enable = true;
             deviceUri = "lpd://192.168.1.38/binary_p1";
+          };
+
+          # Bambu Lab X2D in the officer lounge.
+          ieee-tamu.bambu-printer = {
+            enable = true;
+            accessCodeFile = config.sops.secrets.bambu_x2d_access_code.path;
           };
         }
       )

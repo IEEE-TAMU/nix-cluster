@@ -10,6 +10,7 @@ This directory contains the NixOS and flake-parts modules used by the cluster. C
 - `network-map.nix` — Cluster hostname-to-IP mapping for `/etc/hosts` and interface config.
 - `lounge-music.nix` — Headless mpv/yt-dlp player plus an HTTP control API for the officer lounge speakers.
 - `printing.nix` — CUPS printer plus an HTTP control API for the officer lounge printer.
+- `bambu-printer.nix` — HTTP control API for the officer lounge Bambu Lab X2D (MQTT status, FTPS uploads, RTSPS camera snapshots).
 - `wifi-ap.nix` — Bridged 2.4 GHz WPA2 access point for IoT devices, used by the Bambu printer.
 - `wireguard.nix` — WireGuard road-warrior server for remote access to the IEEE LAN.
 - `ci.nix` — CI/CD support via nix-github-actions for GitHub Actions.

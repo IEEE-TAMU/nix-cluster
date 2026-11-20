@@ -105,6 +105,40 @@ curl -s http://localhost:8788/health
 
 The control API is unauthenticated unless `ieee-tamu.printing.tokenFile` is set (for example to a sops-nix secret containing a bearer token). Keep port 8788 on the trusted campus LAN. To enable auth, add a sops secret on the node, point `ieee-tamu.printing.tokenFile` at `config.sops.secrets.<name>.path`, and set the same value as `PRINT_AGENT_TOKEN` in `cluster-infra/secrets/discord.yaml`.
 
+## 3D printing
+
+`ieee-tamu-5B` runs a control API for the Bambu Lab X2D in the officer lounge at `192.168.1.66`. The Discord bot talks to it instead of speaking Bambu's LAN protocols directly:
+
+```
+/3dprint  ->  discord bot  ->  http://192.168.1.10:8789  ->  MQTT + FTPS  ->  X2D
+/3dprint-status  ->  discord bot  ->  agent  ->  RTSPS snapshot + MQTT status
+```
+
+The module is `ieee-tamu.bambu-printer`; the service is `bambu-printer-agent.service`. It keeps a persistent MQTT/TLS connection to the printer's status feed and exposes:
+
+- `GET /status` — state, progress, temperatures, fans, AMS/filament, errors, and camera availability
+- `GET /snapshot` — one JPEG frame from the chamber camera (RTSPS on port 322)
+- `GET /filaments` — AMS slots and the active tray
+- `POST /print?filename=...&plate=1&filament_map=1` — upload a pre-sliced `.gcode.3mf` over FTPS and start it. Use `dry_run=true` to inspect the parsed filaments and mapping, `start=false` to upload only, and `filament_map=1,3` to choose AMS slots per sliced filament (`ext` for the external spool). If `filament_map` is omitted, the agent auto-matches by filament type and color and returns `needsMapping` with the required filaments and available slots when it cannot.
+- `POST /stop`, `/pause`, `/resume` — job control
+
+The printer's LAN access code is stored as the sops secret `bambu_x2d_access_code` and read by the `bambu-printer` service user. The MQTT connection uses `bblp` plus that code; FTPS uses implicit TLS on port 990 and reuses the control connection's TLS session; the camera uses the printer's RTSPS stream on port 322.
+
+**Important:** newer X2D firmware rejects unsigned `print.*` MQTT commands unless Developer Mode is enabled. Status and the camera work without it, but `/3dprint` (and pause/stop) will return `mqtt message verify failed`. On the printer, enable **Settings → LAN Only** and **Developer Mode**. LAN-only mode disconnects the printer from Bambu Cloud while it is active. The agent reports `developerMode` and `capabilities.startPrint` in `/status` so the bot can warn users.
+
+Useful commands on the host:
+
+```bash
+systemctl status bambu-printer-agent
+journalctl -u bambu-printer-agent -f
+curl -s http://localhost:8789/health
+curl -s http://localhost:8789/status
+curl -s http://localhost:8789/snapshot -o /tmp/bed.jpg
+curl -s http://localhost:8789/filaments
+```
+
+The control API is unauthenticated unless `ieee-tamu.bambu-printer.tokenFile` is set (for example to a sops-nix secret containing a bearer token). Keep port 8789 on the trusted campus LAN. To enable auth, add a sops secret on the node, point `ieee-tamu.bambu-printer.tokenFile` at `config.sops.secrets.<name>.path`, and set the same value as `BAMBU_AGENT_TOKEN` in `cluster-infra/secrets/discord.yaml`.
+
 ## Wi-Fi for IoT devices
 
 `ieee-tamu-5B` also runs a 2.4 GHz WPA2 access point for devices that cannot use the campus WPA-Enterprise network. The wired `enp1s0` and wireless `wlp0s12f0` interfaces are bridged into `br0`, so wireless clients get a normal IEEE LAN address (DHCP from the LAN router) rather than being NATed. The host's cluster IP and keepalived VIP both live on `br0`.
