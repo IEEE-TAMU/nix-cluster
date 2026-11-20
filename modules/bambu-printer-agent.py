@@ -14,6 +14,7 @@ import subprocess
 import threading
 import time
 import urllib.parse
+import uuid
 import xml.etree.ElementTree as ET
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -304,6 +305,49 @@ class PrinterState:
 
 
 STATE = PrinterState()
+
+# Uploads waiting for the user to choose an explicit filament mapping.
+UPLOADS = {}
+UPLOADS_LOCK = threading.Lock()
+UPLOAD_TTL_SECONDS = int(os.environ.get("UPLOAD_TTL_SECONDS", "3600"))
+MAX_PENDING_UPLOADS = int(os.environ.get("MAX_PENDING_UPLOADS", "64"))
+
+
+def prune_uploads():
+    now = time.time()
+    with UPLOADS_LOCK:
+        for key, value in list(UPLOADS.items()):
+            if now - value["createdAt"] > UPLOAD_TTL_SECONDS:
+                UPLOADS.pop(key, None)
+        if len(UPLOADS) > MAX_PENDING_UPLOADS:
+            oldest = sorted(UPLOADS.items(), key=lambda item: item[1]["createdAt"])
+            for key, _ in oldest[: len(UPLOADS) - MAX_PENDING_UPLOADS]:
+                UPLOADS.pop(key, None)
+
+
+def store_upload(plan, remote_name, options, snapshot):
+    prune_uploads()
+    upload_id = uuid.uuid4().hex
+    with UPLOADS_LOCK:
+        UPLOADS[upload_id] = {
+            "plan": plan,
+            "remoteName": remote_name,
+            "options": options,
+            "createdAt": time.time(),
+            "printer": snapshot["printer"]["name"],
+        }
+    return upload_id
+
+
+def get_upload(upload_id):
+    prune_uploads()
+    with UPLOADS_LOCK:
+        return UPLOADS.get(upload_id)
+
+
+def delete_upload(upload_id):
+    with UPLOADS_LOCK:
+        UPLOADS.pop(upload_id, None)
 
 
 class MqttWorker(threading.Thread):
@@ -888,6 +932,18 @@ def ams_slots():
     return snapshot["ams"]["slots"]
 
 
+def synthetic_external_slot(global_id):
+    return {
+        "globalId": global_id,
+        "amsId": global_id,
+        "slotId": 0,
+        "label": "External spool (right)" if global_id == 255 else "External spool",
+        "external": True,
+        "type": None,
+        "color": None,
+    }
+
+
 def resolve_mapping(filaments, mapping_value):
     slots = ams_slots()
     if not slots:
@@ -898,78 +954,94 @@ def resolve_mapping(filaments, mapping_value):
         )
 
     requested = (mapping_value or "").strip()
-    if requested and requested.lower() != "auto":
-        tokens = [token.strip() for token in requested.split(",") if token.strip()]
-        if len(tokens) != len(filaments):
-            raise MappingRequired(
-                f"This print uses {len(filaments)} filament(s); provide {len(filaments)} comma-separated slot(s).",
-                filaments,
-                slots,
+    if not requested or requested.lower() == "auto":
+        raise MappingRequired(
+            "Choose an explicit filament slot for every sliced filament.",
+            filaments,
+            slots,
+        )
+
+    tokens = [token.strip() for token in requested.split(",") if token.strip()]
+    if len(tokens) != len(filaments):
+        raise MappingRequired(
+            f"This print uses {len(filaments)} filament(s); provide {len(filaments)} comma-separated slot(s).",
+            filaments,
+            slots,
+        )
+    selected = []
+    for token in tokens:
+        lowered = token.lower()
+        if lowered in {"ext", "external", "ext1", "254"}:
+            selected.append(
+                next((slot for slot in slots if slot["external"]), None)
+                or synthetic_external_slot(254)
             )
-        selected = []
-        for token in tokens:
-            lowered = token.lower()
-            if lowered in {"ext", "external", "ext1", "254"}:
-                selected.append(next((slot for slot in slots if slot["external"]), None))
-            elif lowered in {"ext2", "255"}:
-                selected.append(
-                    {
-                        "globalId": 255,
-                        "amsId": 255,
-                        "slotId": 0,
-                        "label": "External spool (right)",
-                        "external": True,
-                        "type": None,
-                        "color": None,
-                    }
+        elif lowered in {"ext2", "255"}:
+            selected.append(synthetic_external_slot(255))
+        else:
+            index = parse_int(token)
+            if index is None or index < 1:
+                raise BadRequest(
+                    f"Invalid filament slot {token!r}; use 1-{len(slots)} or 'ext'."
                 )
-            else:
-                index = parse_int(token)
-                if index is None or index < 1:
-                    raise BadRequest(
-                        f"Invalid filament slot {token!r}; use 1-{len(slots)} or 'ext'."
-                    )
-                selected.append(slots[index - 1] if index <= len(slots) else None)
-        if any(slot is None for slot in selected):
+            selected.append(slots[index - 1] if index <= len(slots) else None)
+    if any(slot is None for slot in selected):
+        raise MappingRequired(
+            "One or more selected filament slots do not exist on the printer.",
+            filaments,
+            slots,
+        )
+    return selected, []
+
+
+def resolve_mapping_values(filaments, values, slots):
+    if not slots:
+        raise MappingRequired(
+            "No AMS slots or external spool are reporting filament. Load filament and try again.",
+            filaments,
+            slots,
+        )
+    if not isinstance(values, list) or len(values) != len(filaments):
+        raise MappingRequired(
+            f"This print uses {len(filaments)} filament(s); choose one slot for each.",
+            filaments,
+            slots,
+        )
+
+    selected = []
+    for value in values:
+        slot = None
+        if isinstance(value, bool):
+            slot = None
+        elif isinstance(value, int):
+            global_id = value
+            slot = next((candidate for candidate in slots if candidate["globalId"] == global_id), None)
+            if slot is None and global_id in (254, 255):
+                slot = synthetic_external_slot(global_id)
+        elif isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered in {"ext", "external", "ext1"}:
+                slot = next((candidate for candidate in slots if candidate["external"]), None)
+                if slot is None:
+                    slot = synthetic_external_slot(254)
+            elif lowered in {"ext2", "255"}:
+                slot = synthetic_external_slot(255)
+            elif lowered.lstrip("-").isdigit():
+                global_id = int(lowered)
+                slot = next(
+                    (candidate for candidate in slots if candidate["globalId"] == global_id),
+                    None,
+                )
+                if slot is None and global_id in (254, 255):
+                    slot = synthetic_external_slot(global_id)
+        if slot is None:
             raise MappingRequired(
                 "One or more selected filament slots do not exist on the printer.",
                 filaments,
                 slots,
             )
-        return selected, []
-
-    selected = []
-    warnings = []
-    used = set()
-    for filament in filaments:
-        filament_type = (filament.get("type") or "").strip().upper()
-        filament_color = hex_color(filament.get("color"))
-        candidates = [
-            slot
-            for slot in slots
-            if slot["globalId"] not in used
-            and (slot.get("type") or "").strip().upper() == filament_type
-        ]
-        exact = [
-            slot for slot in candidates if filament_color and slot.get("color") == filament_color
-        ]
-        if exact:
-            candidates = exact
-        elif candidates:
-            warnings.append(
-                f"{filament_type or 'Filament'} color differs from the sliced file; using slot {candidates[0]['label']}."
-            )
-        if not candidates:
-            raise MappingRequired(
-                f"No AMS slot matches {filament_type or 'the sliced filament'}"
-                f"{' ' + filament_color if filament_color else ''}. "
-                "Load the right filament or pass filament_map explicitly.",
-                filaments,
-                slots,
-            )
-        selected.append(candidates[0])
-        used.add(candidates[0]["globalId"])
-    return selected, warnings
+        selected.append(slot)
+    return selected
 
 
 def mapping_payload(selected, filaments, mapping_length=None):
@@ -1007,99 +1079,89 @@ def mapping_payload(selected, filaments, mapping_length=None):
     return flat, detailed, use_ams
 
 
-def print_file(data, filename, plate=1, mapping_value="", options=None):
+def normalize_options(options):
     options = options or {}
-    if not filename.lower().endswith(".gcode.3mf"):
-        raise BadRequest("The file must be a pre-sliced .gcode.3mf.")
-    if len(data) > MAX_FILE_BYTES:
-        raise BadRequest(
-            f"That file is too large; the limit is {MAX_FILE_BYTES // (1024 * 1024)} MB."
-        )
+    return {
+        "bedLeveling": parse_bool(options.get("bed_leveling"), True),
+        "flowCali": parse_bool(options.get("flow_cali"), False),
+        "vibrationCali": parse_bool(options.get("vibration_cali"), False),
+        "layerInspect": parse_bool(options.get("layer_inspect"), True),
+        "timelapse": parse_bool(options.get("timelapse"), False),
+    }
 
-    plan = analyze_3mf(data, filename, plate)
-    if not STATE.wait_for_data():
-        raise AgentError("no status received from the printer yet")
-    snapshot = printer_snapshot()
-    printer = snapshot["printer"]
-    selected, warnings = resolve_mapping(plan["filaments"], mapping_value)
-    flat_mapping, detailed_mapping, use_ams = mapping_payload(
-        selected,
-        plan["filaments"],
-        plan.get("mapping_length"),
-    )
 
-    if options.get("dry_run"):
-        return {
-            "ok": True,
-            "dryRun": True,
-            "filename": safe_filename(filename),
-            "plate": plate,
-            "subtask": re.sub(
-                r"\.gcode\.3mf$|\.3mf$",
-                "",
-                safe_filename(filename),
-                flags=re.IGNORECASE,
+def filament_summary(filaments, selected=None):
+    return [
+        {
+            "index": index + 1,
+            "id": filament.get("id"),
+            "type": filament.get("type"),
+            "color": filament.get("color"),
+            "grams": filament.get("used_grams"),
+            "slot": (
+                selected[index]["label"]
+                if selected is not None and index < len(selected)
+                else None
             ),
-            "printer": printer["name"],
-            "filaments": [
-                {
-                    "index": index + 1,
-                    "type": filament.get("type"),
-                    "color": filament.get("color"),
-                    "grams": filament.get("used_grams"),
-                    "slot": selected[index]["label"] if index < len(selected) else None,
-                    "globalTray": selected[index]["globalId"] if index < len(selected) else None,
-                }
-                for index, filament in enumerate(plan["filaments"])
-            ],
-            "warnings": warnings,
-            "settings": {
-                "useAms": use_ams,
-                "amsMapping": flat_mapping if use_ams else None,
-                "amsMapping2": detailed_mapping if use_ams else None,
-            },
-            "capabilities": snapshot["capabilities"],
+            "globalTray": (
+                selected[index]["globalId"]
+                if selected is not None and index < len(selected)
+                else None
+            ),
         }
+        for index, filament in enumerate(filaments)
+    ]
 
-    upload_only = parse_bool(options.get("upload_only"), False)
-    if not upload_only and snapshot["printer"]["signedCommandsRequired"]:
+
+def upload_response(plan, remote_name, upload_id, snapshot, options):
+    return {
+        "ok": True,
+        "uploaded": True,
+        "started": False,
+        "uploadId": upload_id,
+        "filename": remote_name,
+        "plate": plan["plate"],
+        "subtask": re.sub(
+            r"\.gcode\.3mf$|\.3mf$",
+            "",
+            remote_name,
+            flags=re.IGNORECASE,
+        ),
+        "printer": snapshot["printer"]["name"],
+        "printerState": snapshot["printer"]["state"],
+        "capabilities": snapshot["capabilities"],
+        "filaments": filament_summary(plan["filaments"]),
+        "slots": snapshot["ams"]["slots"],
+        "settings": options,
+        "warnings": [],
+    }
+
+
+def start_plan(plan, remote_name, selected, options, snapshot):
+    printer = snapshot["printer"]
+    if printer["signedCommandsRequired"]:
         raise AgentError(
             "The printer is rejecting unsigned MQTT commands (Developer Mode is off). "
             "Enable Settings → LAN Only → Developer Mode on the X2D, then try again."
         )
     busy_states = {"PREPARE", "RUNNING", "PAUSE", "SLICING"}
-    if not upload_only and snapshot["printer"]["state"] in busy_states:
+    if printer["state"] in busy_states:
         raise PrinterBusy(
-            f"The printer is busy ({snapshot['printer']['stateLabel']}). "
+            f"The printer is busy ({printer['stateLabel']}). "
             "Wait for the current job to finish or stop it before starting another."
         )
 
-    remote_name = safe_filename(filename)
-    upload_3mf(data, remote_name)
-
-    subtask_name = re.sub(r"\.gcode\.3mf$|\.3mf$", "", remote_name, flags=re.IGNORECASE)
-    if upload_only:
-        return {
-            "ok": True,
-            "uploaded": True,
-            "started": False,
-            "filename": remote_name,
-            "plate": plate,
-            "subtask": subtask_name,
-            "printer": printer["name"],
-            "filaments": [
-                {
-                    "index": index + 1,
-                    "type": filament.get("type"),
-                    "color": filament.get("color"),
-                    "grams": filament.get("used_grams"),
-                    "slot": selected[index]["label"] if index < len(selected) else None,
-                    "globalTray": selected[index]["globalId"] if index < len(selected) else None,
-                }
-                for index, filament in enumerate(plan["filaments"])
-            ],
-            "warnings": warnings,
-        }
+    flat_mapping, detailed_mapping, use_ams = mapping_payload(
+        selected,
+        plan["filaments"],
+        plan.get("mapping_length"),
+    )
+    subtask_name = re.sub(
+        r"\.gcode\.3mf$|\.3mf$",
+        "",
+        remote_name,
+        flags=re.IGNORECASE,
+    )
     fields = {
         "param": plan["gcode_path"],
         "project_id": "0",
@@ -1111,17 +1173,18 @@ def print_file(data, filename, plate=1, mapping_value="", options=None):
         "url": f"{PRINT_URL_SCHEME}{urllib.parse.quote(remote_name)}",
         "md5": plan["md5"],
         "bed_type": "auto",
-        "bed_leveling": parse_bool(options.get("bed_leveling"), True),
-        "flow_cali": parse_bool(options.get("flow_cali"), False),
-        "vibration_cali": parse_bool(options.get("vibration_cali"), False),
-        "layer_inspect": parse_bool(options.get("layer_inspect"), True),
-        "timelapse": parse_bool(options.get("timelapse"), False),
+        "bed_leveling": options.get("bedLeveling", True),
+        "flow_cali": options.get("flowCali", False),
+        "vibration_cali": options.get("vibrationCali", False),
+        "layer_inspect": options.get("layerInspect", True),
+        "timelapse": options.get("timelapse", False),
         "use_ams": use_ams,
     }
     if any(slot is not None for slot in selected):
         fields["ams_mapping"] = flat_mapping
         fields["ams_mapping2"] = detailed_mapping
 
+    warnings = []
     started_at = time.time()
     sequence = MQTT_WORKER.publish_command("print", "project_file", fields)
     response = STATE.wait_for_command(
@@ -1143,20 +1206,10 @@ def print_file(data, filename, plate=1, mapping_value="", options=None):
     return {
         "ok": True,
         "filename": remote_name,
-        "plate": plate,
+        "plate": plan["plate"],
         "subtask": subtask_name,
         "printer": printer["name"],
-        "filaments": [
-            {
-                "index": index + 1,
-                "type": filament.get("type"),
-                "color": filament.get("color"),
-                "grams": filament.get("used_grams"),
-                "slot": selected[index]["label"] if index < len(selected) else None,
-                "globalTray": selected[index]["globalId"] if index < len(selected) else None,
-            }
-            for index, filament in enumerate(plan["filaments"])
-        ],
+        "filaments": filament_summary(plan["filaments"], selected),
         "warnings": warnings,
         "settings": {
             "useAms": use_ams,
@@ -1170,6 +1223,54 @@ def print_file(data, filename, plate=1, mapping_value="", options=None):
         },
         "printerResponse": response,
     }
+
+
+def print_file(data, filename, plate=1, mapping_value="", options=None):
+    options = options or {}
+    if not filename.lower().endswith(".gcode.3mf"):
+        raise BadRequest("The file must be a pre-sliced .gcode.3mf.")
+    if len(data) > MAX_FILE_BYTES:
+        raise BadRequest(
+            f"That file is too large; the limit is {MAX_FILE_BYTES // (1024 * 1024)} MB."
+        )
+
+    plan = analyze_3mf(data, filename, plate)
+    if not STATE.wait_for_data():
+        raise AgentError("no status received from the printer yet")
+    snapshot = printer_snapshot()
+    remote_name = safe_filename(filename)
+    normalized = normalize_options(options)
+
+    if options.get("dry_run"):
+        return {
+            "ok": True,
+            "dryRun": True,
+            "filename": remote_name,
+            "plate": plan["plate"],
+            "subtask": re.sub(
+                r"\.gcode\.3mf$|\.3mf$",
+                "",
+                remote_name,
+                flags=re.IGNORECASE,
+            ),
+            "printer": snapshot["printer"]["name"],
+            "filaments": filament_summary(plan["filaments"]),
+            "slots": snapshot["ams"]["slots"],
+            "capabilities": snapshot["capabilities"],
+            "printerState": snapshot["printer"]["state"],
+            "warnings": [],
+        }
+
+    if options.get("upload_only"):
+        upload_3mf(data, remote_name)
+        upload_id = store_upload(plan, remote_name, normalized, snapshot)
+        return upload_response(plan, remote_name, upload_id, snapshot, normalized)
+
+    selected, warnings = resolve_mapping(plan["filaments"], mapping_value)
+    upload_3mf(data, remote_name)
+    result = start_plan(plan, remote_name, selected, normalized, snapshot)
+    result["warnings"] = warnings + result.get("warnings", [])
+    return result
 
 
 _snapshot_lock = threading.Lock()
@@ -1393,6 +1494,42 @@ class Handler(BaseHTTPRequestHandler):
                     200,
                     print_file(data, filename, plate, mapping_value, options),
                 )
+            elif path == "/start":
+                payload = self.read_json()
+                upload_id = payload.get("uploadId") or payload.get("upload_id")
+                if not isinstance(upload_id, str) or not upload_id:
+                    raise BadRequest("'uploadId' is required.")
+                upload = get_upload(upload_id)
+                if upload is None:
+                    raise BadRequest(
+                        "That upload expired; upload the .gcode.3mf again."
+                    )
+                if not STATE.wait_for_data():
+                    raise AgentError("no status received from the printer yet")
+                snapshot = printer_snapshot()
+                slots = snapshot["ams"]["slots"]
+                mapping_value = payload.get("filament_map")
+                if isinstance(mapping_value, str):
+                    selected, _ = resolve_mapping(
+                        upload["plan"]["filaments"], mapping_value
+                    )
+                elif isinstance(mapping_value, list):
+                    selected = resolve_mapping_values(
+                        upload["plan"]["filaments"], mapping_value, slots
+                    )
+                else:
+                    raise BadRequest(
+                        "'filament_map' must be a list of tray ids or a comma-separated string."
+                    )
+                result = start_plan(
+                    upload["plan"],
+                    upload["remoteName"],
+                    selected,
+                    upload["options"],
+                    snapshot,
+                )
+                delete_upload(upload_id)
+                self.send_json(200, result)
             elif path in {"/stop", "/pause", "/resume"}:
                 command = path.lstrip("/")
                 started_at = time.time()
