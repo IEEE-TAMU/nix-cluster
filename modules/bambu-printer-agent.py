@@ -46,6 +46,9 @@ MQTT_REFRESH_SECONDS = int(os.environ.get("MQTT_REFRESH_SECONDS", "30"))
 COMMAND_TIMEOUT_SECONDS = int(os.environ.get("COMMAND_TIMEOUT_SECONDS", "15"))
 PRINT_URL_SCHEME = os.environ.get("PRINT_URL_SCHEME", "ftp:///")
 SUPPORTED_MODELS = {"N6"}  # Bambu Lab X2D
+# X2D raises this hidden camera warning at every boot; Bambu Studio does not
+# show it. Keep the Discord status focused on actionable faults.
+HIDDEN_HMS = {"0500_0600_0002_0070"}
 
 _sequence_lock = threading.Lock()
 _sequence_id = int(time.time()) % 100000
@@ -191,14 +194,17 @@ def format_hms(hms):
         code = parse_int(entry.get("code"))
         if attr is None or code is None:
             continue
+        display = (
+            f"{attr >> 16:04X}_{attr & 0xFFFF:04X}_"
+            f"{code >> 16:04X}_{code & 0xFFFF:04X}"
+        )
+        if display in HIDDEN_HMS:
+            continue
         formatted.append(
             {
                 "attr": f"{attr:08X}",
                 "code": f"{code:08X}",
-                "display": (
-                    f"{attr >> 16:04X}_{attr & 0xFFFF:04X}_"
-                    f"{code >> 16:04X}_{code & 0xFFFF:04X}"
-                ),
+                "display": display,
                 "timestamp": entry.get("ts_unix"),
             }
         )
